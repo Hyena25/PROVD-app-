@@ -11,11 +11,12 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors } from '../constants/theme';
+import { colors, shadows } from '../constants/theme';
 import {
   lookupGroupByInviteCode,
   joinGroupByInviteCode,
 } from '../api/groupApi';
+import BackBar from '../components/BackBar';
 
 const CODE_LENGTH = 6;
 const MAX_MEMBERS = 15;
@@ -98,6 +99,7 @@ export default function JoinGroup() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <BackBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
@@ -194,7 +196,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, padding: 24, justifyContent: 'center' },
 
-  title: { fontSize: 28, fontWeight: '700', color: colors.dark },
+  title: { fontSize: 32, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
   subtitle: {
     fontSize: 14,
     color: colors.textMuted,
@@ -233,11 +235,12 @@ const styles = StyleSheet.create({
   },
 
   preview: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 18,
     marginTop: 16,
+    ...shadows.card,
   },
   previewName: { fontSize: 18, fontWeight: '700', color: colors.dark },
   previewCount: {
@@ -261,11 +264,12 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 24,
     backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    ...shadows.button,
   },
   buttonDisabled: { backgroundColor: colors.textMuted, opacity: 0.6 },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '600' },
+  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 });

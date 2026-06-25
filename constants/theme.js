@@ -1,10 +1,27 @@
 export const colors = {
-  accent: '#4F46E5',
-  dark: '#1E1B4B',
+  accent: '#FF2E63',
+  dark: '#1A1033',
   background: '#FFFFFF',
-  surface: '#F8F8F8',
-  text: '#333333',
-  textMuted: '#666666',
-  success: '#166534',
-  danger: '#881337',
+  surface: '#F4F0FF',
+  text: '#1A1033',
+  textMuted: '#6B5E8C',
+  success: '#00D26A',
+  danger: '#E11D48',
+};
+
+export const shadows = {
+  card: {
+    shadowColor: '#1A1033',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  button: {
+    shadowColor: '#FF2E63',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 4,
+  },
 };

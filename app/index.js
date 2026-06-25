@@ -13,7 +13,8 @@ import { router, useFocusEffect } from 'expo-router';
 import dayjs from 'dayjs';
 import { supabase } from '../lib/supabase';
 import { listMyGroups } from '../api/groupApi';
-import { colors } from '../constants/theme';
+import { listPendingVotesForUser } from '../api/voteApi';
+import { colors, shadows } from '../constants/theme';
 
 const ACTIVE_STATUSES = ['pending', 'active'];
 
@@ -38,24 +39,26 @@ export default function Home() {
   const [profile, setProfile] = useState(null);
   const [activeDare, setActiveDare] = useState(null);
   const [groups, setGroups] = useState([]);
+  const [pendingVotes, setPendingVotes] = useState([]);
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const {
-        data: { user },
+        data: { session },
         error: authError,
-      } = await supabase.auth.getUser();
+      } = await supabase.auth.getSession();
       if (authError) throw authError;
-      if (!user) {
+      if (!session?.user) {
         router.replace('/login');
         return;
       }
+      const user = session.user;
 
-      const [profileRes, dareRes, groupsRes] = await Promise.all([
+      const [profileRes, dareRes, groupsRes, votesRes] = await Promise.all([
         supabase
           .from('users')
-          .select('username, display_name, total_points, current_streak')
+          .select('username, display_name, total_points, current_streak, arena_verified')
           .eq('id', user.id)
           .single(),
         supabase
@@ -66,6 +69,7 @@ export default function Home() {
           .order('created_at', { ascending: false })
           .limit(1),
         listMyGroups(),
+        listPendingVotesForUser().catch(() => []),
       ]);
 
       if (profileRes.error) throw profileRes.error;
@@ -75,6 +79,7 @@ export default function Home() {
       setActiveDare(dareRes.data?.[0] ?? null);
 
       setGroups(groupsRes ?? []);
+      setPendingVotes(votesRes ?? []);
     } catch (err) {
       setError(err?.message ?? 'Could not load home.');
     }
@@ -176,10 +181,62 @@ export default function Home() {
         )}
 
         <Pressable
-          onPress={() => router.push('/create-dare')}
+          onPress={() =>
+            router.push(
+              groups.length
+                ? `/create-dare?groupId=${groups[0].id}`
+                : '/create-group'
+            )
+          }
           style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
         >
           <Text style={styles.primaryButtonText}>Dare a friend</Text>
+        </Pressable>
+
+        {pendingVotes.length > 0 ? (
+          <>
+            <Text style={styles.sectionTitle}>
+              Votes to cast ({pendingVotes.length})
+            </Text>
+            {pendingVotes.map((v) => (
+              <Pressable
+                key={v.submission_id}
+                onPress={() => router.push(`/vote/${v.submission_id}`)}
+                style={({ pressed }) => [styles.voteRow, pressed && styles.pressed]}
+              >
+                <View style={styles.flex}>
+                  <Text style={styles.voteTitle} numberOfLines={1}>
+                    {v.dare_title}
+                  </Text>
+                  <Text style={styles.voteMeta}>
+                    @{v.submitter_username} ·{' '}
+                    {v.media_type === 'video' ? 'Video' : 'Photo'} proof
+                  </Text>
+                </View>
+                <Text style={styles.voteCta}>Vote</Text>
+              </Pressable>
+            ))}
+          </>
+        ) : null}
+
+        <Text style={styles.sectionTitle}>Arena</Text>
+        <Pressable
+          onPress={() =>
+            router.push(profile?.arena_verified ? '/arena' : '/arena-verify')
+          }
+          style={({ pressed }) => [styles.arenaCard, pressed && styles.pressed]}
+        >
+          <View style={styles.flex}>
+            <Text style={styles.arenaTitle}>
+              {profile?.arena_verified ? 'Enter the Arena' : 'Unlock Arena'}
+            </Text>
+            <Text style={styles.arenaHint}>
+              {profile?.arena_verified
+                ? 'Take on dares from strangers.'
+                : "Verify you're 18+ to play with strangers."}
+            </Text>
+          </View>
+          <Text style={styles.chevron}>›</Text>
         </Pressable>
 
         <View style={styles.sectionHeaderRow}>
@@ -253,22 +310,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  brand: { fontSize: 22, fontWeight: '700', color: colors.dark },
+  brand: { fontSize: 26, fontWeight: '800', color: colors.accent, letterSpacing: -0.5 },
   profileLink: { color: colors.accent, fontSize: 14, fontWeight: '600' },
 
-  greeting: { fontSize: 26, fontWeight: '700', color: colors.dark, marginBottom: 16 },
+  greeting: { fontSize: 30, fontWeight: '800', color: colors.dark, marginBottom: 20, letterSpacing: -0.5 },
 
   statsRow: { flexDirection: 'row', marginHorizontal: -6, marginBottom: 8 },
   stat: { flex: 1, paddingHorizontal: 6 },
   statValue: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 22,
+    fontWeight: '800',
     color: colors.dark,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingVertical: 14,
+    backgroundColor: colors.background,
+    borderRadius: 14,
+    paddingVertical: 16,
     paddingHorizontal: 14,
     overflow: 'hidden',
+    ...shadows.card,
   },
   statLabel: {
     fontSize: 12,
@@ -291,9 +349,10 @@ const styles = StyleSheet.create({
   linkAction: { color: colors.accent, fontSize: 14, fontWeight: '600' },
 
   dareCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 18,
+    ...shadows.card,
   },
   dareTitle: { fontSize: 17, fontWeight: '700', color: colors.dark },
   dareMeta: {
@@ -305,32 +364,69 @@ const styles = StyleSheet.create({
 
   emptyCard: {
     backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
   },
   empty: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
 
   primaryButton: {
     marginTop: 16,
     backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    ...shadows.button,
   },
-  primaryButtonText: { color: colors.background, fontSize: 16, fontWeight: '600' },
+  primaryButtonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 
   groupRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: 14,
     paddingVertical: 14,
     paddingHorizontal: 16,
-    marginBottom: 8,
+    marginBottom: 10,
+    ...shadows.card,
   },
   groupName: { fontSize: 15, fontWeight: '600', color: colors.dark },
   groupMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   chevron: { fontSize: 24, color: colors.textMuted, marginLeft: 12 },
+
+  voteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    ...shadows.card,
+  },
+  voteTitle: { fontSize: 15, fontWeight: '600', color: colors.dark },
+  voteMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  voteCta: {
+    color: colors.background,
+    fontSize: 13,
+    fontWeight: '700',
+    backgroundColor: colors.accent,
+    borderRadius: 999,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
+    marginLeft: 12,
+  },
+
+  arenaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+  },
+  arenaTitle: { fontSize: 15, fontWeight: '700', color: colors.dark },
+  arenaHint: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
 
   pressed: { opacity: 0.85 },
 });

@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Pressable,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { router } from 'expo-router';
 import dayjs from 'dayjs';
 import { supabase } from '../lib/supabase';
-import { colors } from '../constants/theme';
+import { colors, shadows } from '../constants/theme';
+import BackBar from '../components/BackBar';
 
 export default function Profile() {
   const [loading, setLoading] = useState(true);
@@ -36,7 +39,7 @@ export default function Profile() {
         const { data: profileRow, error: profileError } = await supabase
           .from('users')
           .select(
-            'username, display_name, current_streak, total_points'
+            'username, display_name, current_streak, total_points, arena_verified'
           )
           .eq('id', user.id)
           .single();
@@ -115,6 +118,7 @@ export default function Profile() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <BackBar />
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.header}>
           <Text style={styles.username}>@{profile.username}</Text>
@@ -132,6 +136,25 @@ export default function Profile() {
             value={completionRate == null ? '—' : `${completionRate}%`}
           />
         </View>
+
+        <Text style={styles.sectionTitle}>Arena</Text>
+        {profile.arena_verified ? (
+          <Pressable
+            onPress={() => router.push('/arena')}
+            style={({ pressed }) => [styles.arenaCta, pressed && styles.pressed]}
+          >
+            <Text style={styles.arenaVerified}>Verified · 18+</Text>
+            <Text style={styles.arenaCtaHint}>Enter the Arena — dares from strangers.</Text>
+          </Pressable>
+        ) : (
+          <Pressable
+            onPress={() => router.push('/arena-verify')}
+            style={({ pressed }) => [styles.arenaCta, pressed && styles.pressed]}
+          >
+            <Text style={styles.arenaCtaText}>Unlock Arena</Text>
+            <Text style={styles.arenaCtaHint}>Verify you're 18+ to play with strangers.</Text>
+          </Pressable>
+        )}
 
         <Text style={styles.sectionTitle}>Crowns</Text>
         {crowns.length === 0 ? (
@@ -192,7 +215,7 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, fontSize: 14, textAlign: 'center' },
 
   header: { marginBottom: 24 },
-  username: { fontSize: 28, fontWeight: '700', color: colors.dark },
+  username: { fontSize: 32, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
   displayName: { marginTop: 4, fontSize: 16, color: colors.textMuted },
 
   statsGrid: {
@@ -207,14 +230,15 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   statValue: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
     color: colors.dark,
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingVertical: 14,
+    backgroundColor: colors.background,
+    borderRadius: 14,
+    paddingVertical: 16,
     paddingHorizontal: 14,
     overflow: 'hidden',
+    ...shadows.card,
   },
   statLabel: {
     fontSize: 12,
@@ -244,11 +268,12 @@ const styles = StyleSheet.create({
     marginHorizontal: -4,
   },
   crown: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
+    backgroundColor: colors.background,
+    borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
     margin: 4,
+    ...shadows.card,
   },
   crownLabel: { color: colors.dark, fontSize: 14, fontWeight: '600' },
   crownDate: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
@@ -271,4 +296,17 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
   },
+
+  arenaCta: {
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    ...shadows.card,
+  },
+  arenaCtaText: { color: colors.dark, fontSize: 15, fontWeight: '700' },
+  arenaCtaHint: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
+  arenaRow: { paddingVertical: 4 },
+  arenaVerified: { color: colors.success, fontSize: 14, fontWeight: '600' },
+  pressed: { opacity: 0.85 },
 });

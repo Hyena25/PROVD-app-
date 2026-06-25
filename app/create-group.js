@@ -12,8 +12,9 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { colors } from '../constants/theme';
+import { colors, shadows } from '../constants/theme';
 import { createGroup } from '../api/groupApi';
+import BackBar from '../components/BackBar';
 
 const MAX_NAME_LENGTH = 30;
 
@@ -84,6 +85,7 @@ export default function CreateGroup() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <BackBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
@@ -137,7 +139,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   container: { flex: 1, padding: 24, justifyContent: 'center' },
 
-  title: { fontSize: 28, fontWeight: '700', color: colors.dark },
+  title: { fontSize: 32, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
   subtitle: {
     fontSize: 14,
     color: colors.textMuted,
@@ -172,20 +174,22 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 24,
     backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    ...shadows.button,
   },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '600' },
+  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 
   codeBox: {
-    backgroundColor: colors.surface,
-    borderRadius: 14,
+    backgroundColor: colors.background,
+    borderRadius: 18,
     paddingVertical: 28,
     paddingHorizontal: 16,
     alignItems: 'center',
     marginTop: 24,
+    ...shadows.card,
   },
   code: {
     fontSize: 36,

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { colors } from '../constants/theme';
+import { colors, shadows } from '../constants/theme';
 
 export default function SignUp() {
   const [username, setUsername] = useState('');
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
   container: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 28, fontWeight: '700', color: colors.dark },
+  title: { fontSize: 32, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
   subtitle: {
     fontSize: 14,
     color: colors.textMuted,
@@ -176,10 +176,11 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 24,
     backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    ...shadows.button,
   },
   buttonPressed: { opacity: 0.85 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '600' },
+  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 });

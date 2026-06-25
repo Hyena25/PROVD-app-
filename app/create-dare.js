@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { colors } from '../constants/theme';
+import { colors, shadows } from '../constants/theme';
 import {
   CATEGORIES,
   DIFFICULTY_TIERS,
@@ -21,6 +21,7 @@ import {
   fetchDareLibrary,
 } from '../api/dareApi';
 import { generateDares } from '../api/aiApi';
+import BackBar from '../components/BackBar';
 
 const MAX_TITLE_LENGTH = 200;
 const TABS = [
@@ -211,6 +212,7 @@ export default function CreateDare() {
   if (loadError) {
     return (
       <SafeAreaView style={styles.safe}>
+        <BackBar />
         <View style={styles.center}>
           <Text style={styles.errorText}>{loadError}</Text>
         </View>
@@ -220,6 +222,7 @@ export default function CreateDare() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <BackBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
@@ -655,9 +658,10 @@ const styles = StyleSheet.create({
   tabTextDisabled: { color: colors.textMuted },
 
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '800',
     color: colors.dark,
+    letterSpacing: -0.5,
     marginBottom: 8,
   },
   subtitle: {
@@ -709,11 +713,11 @@ const styles = StyleSheet.create({
 
   tierList: { marginTop: 4 },
   tier: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 2,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginBottom: 8,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -725,12 +729,13 @@ const styles = StyleSheet.create({
   submitButton: {
     marginTop: 24,
     backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    ...shadows.button,
   },
   submitButtonPressed: { opacity: 0.85 },
-  submitText: { color: colors.background, fontSize: 16, fontWeight: '600' },
+  submitText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 
   libraryListWrap: { marginTop: 16 },
   libraryLoadingRow: {
@@ -744,10 +749,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   libraryItem: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 14,
+    backgroundColor: colors.background,
+    borderRadius: 14,
+    padding: 16,
     marginBottom: 10,
+    ...shadows.card,
   },
   libraryItemPressed: { opacity: 0.85 },
   libraryTitle: {

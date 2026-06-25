@@ -14,7 +14,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
 import { supabase } from '../../lib/supabase';
-import { colors } from '../../constants/theme';
+import { colors, shadows } from '../../constants/theme';
 import { CATEGORIES, DIFFICULTY_TIERS } from '../../api/dareApi';
 import {
   pickMediaFromCamera,
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   },
   flagText: { color: colors.danger, fontSize: 13, fontWeight: '600' },
 
-  title: { fontSize: 26, fontWeight: '700', color: colors.dark },
+  title: { fontSize: 30, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
   meta: { fontSize: 14, color: colors.textMuted, marginTop: 6 },
 
   tagsRow: {
@@ -566,11 +566,12 @@ const styles = StyleSheet.create({
 
   countdownBox: {
     marginTop: 24,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    paddingVertical: 18,
     paddingHorizontal: 16,
     alignItems: 'center',
+    ...shadows.card,
   },
   countdownLabel: {
     fontSize: 12,
@@ -594,30 +595,33 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  actionsCol: { marginTop: 24, gap: 10 },
+  actionsCol: { marginTop: 24, gap: 12 },
   primaryButton: {
     backgroundColor: colors.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    ...shadows.button,
   },
   primaryButtonText: {
     color: colors.background,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   secondaryButton: {
     backgroundColor: colors.background,
     borderColor: colors.accent,
     borderWidth: 1.5,
-    borderRadius: 10,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
   },
   secondaryButtonText: {
     color: colors.accent,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   secondaryButtonDisabled: {
     borderColor: colors.textMuted,
@@ -638,11 +642,12 @@ const styles = StyleSheet.create({
 
   reviewBox: {
     marginTop: 24,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: 16,
     paddingVertical: 24,
     paddingHorizontal: 20,
     alignItems: 'center',
+    ...shadows.card,
   },
   reviewTitle: {
     fontSize: 18,

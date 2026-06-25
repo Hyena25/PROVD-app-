@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
-import { colors } from '../../constants/theme';
+import { colors, shadows } from '../../constants/theme';
 import { castVote, getSubmissionForVoter } from '../../api/voteApi';
 
 function formatRemaining(ms) {
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
 
   body: { padding: 24 },
-  title: { fontSize: 22, fontWeight: '700', color: colors.dark },
+  title: { fontSize: 26, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
   meta: {
     marginTop: 4,
     fontSize: 13,
@@ -323,11 +323,12 @@ const styles = StyleSheet.create({
 
   timerBox: {
     marginTop: 20,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     alignItems: 'center',
+    ...shadows.card,
   },
   timerLabel: {
     fontSize: 12,
@@ -373,10 +374,11 @@ const styles = StyleSheet.create({
 
   statusBox: {
     marginTop: 20,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderRadius: 16,
     padding: 16,
     alignItems: 'center',
+    ...shadows.card,
   },
   statusText: {
     color: colors.text,
@@ -393,21 +395,32 @@ const styles = StyleSheet.create({
   approveButton: {
     flex: 1,
     backgroundColor: colors.success,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    shadowColor: colors.success,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 4,
   },
   rejectButton: {
     flex: 1,
     backgroundColor: colors.danger,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    shadowColor: colors.danger,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 14,
+    elevation: 4,
   },
   actionButtonText: {
     color: colors.background,
     fontSize: 16,
     fontWeight: '700',
+    letterSpacing: 0.2,
   },
   buttonPressed: { opacity: 0.85 },
   buttonDimmed: { opacity: 0.6 },

@@ -11,7 +11,8 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
 import { supabase } from '../../lib/supabase';
-import { colors } from '../../constants/theme';
+import { colors, shadows } from '../../constants/theme';
+import BackBar from '../../components/BackBar';
 
 export default function GroupDetail() {
   const { id } = useLocalSearchParams();
@@ -95,6 +96,7 @@ export default function GroupDetail() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <BackBar />
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.groupName}>{overview.name}</Text>
 
@@ -114,7 +116,7 @@ export default function GroupDetail() {
         </View>
 
         <Pressable
-          onPress={() => router.push('/dare/new')}
+          onPress={() => router.push(`/create-dare?groupId=${id}`)}
           style={({ pressed }) => [
             styles.cta,
             pressed && styles.ctaPressed,
@@ -177,9 +179,10 @@ const styles = StyleSheet.create({
   errorText: { color: colors.danger, fontSize: 14, textAlign: 'center' },
 
   groupName: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 32,
+    fontWeight: '800',
     color: colors.dark,
+    letterSpacing: -0.5,
   },
 
   pillRow: {
@@ -189,11 +192,12 @@ const styles = StyleSheet.create({
   },
   pill: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    paddingVertical: 12,
+    backgroundColor: colors.background,
+    borderRadius: 14,
+    paddingVertical: 14,
     paddingHorizontal: 14,
     marginHorizontal: 6,
+    ...shadows.card,
   },
   pillLabel: {
     fontSize: 11,
@@ -211,12 +215,13 @@ const styles = StyleSheet.create({
   cta: {
     marginTop: 20,
     backgroundColor: colors.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 16,
+    paddingVertical: 16,
     alignItems: 'center',
+    ...shadows.button,
   },
   ctaPressed: { opacity: 0.85 },
-  ctaText: { color: colors.background, fontSize: 16, fontWeight: '600' },
+  ctaText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 
   sectionTitle: {
     fontSize: 16,
