@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -8,15 +7,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { Link, router } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../lib/supabase';
-import { colors, shadows } from '../constants/theme';
+import { colors, fonts, gutter, radius, space, type } from '../constants/theme';
+import { Button, Card, Field, Screen } from '../components/ui';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -65,8 +62,8 @@ export default function Login() {
   }
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="light" />
+    <Screen>
+      <StatusBar style="dark" />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
@@ -75,34 +72,26 @@ export default function Login() {
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
-          bounces={false}
         >
-          <LinearGradient
-            colors={[colors.accent, colors.dark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.hero}
-          >
-            <Text style={styles.brand}>Provd</Text>
+          <View style={styles.head}>
+            <View style={styles.brandRow}>
+              <View style={styles.mark}>
+                <Text style={styles.markGlyph}>P</Text>
+              </View>
+              <Text style={styles.brand}>Provd</Text>
+            </View>
             <Text style={styles.tagline}>
-              Dare your friends. Prove it. Win the crown.
+              Dare your friends.{'\n'}Prove it. Win the crown.
             </Text>
-          </LinearGradient>
+          </View>
 
-          <View style={styles.sheet}>
-            <Text style={styles.title}>Welcome back</Text>
+          <Card style={styles.card}>
+            <Text style={styles.title}>Welcome back 👋</Text>
             <Text style={styles.subtitle}>Log in to keep your streak going.</Text>
 
-            <Text style={styles.label}>Email</Text>
-            <View
-              style={[styles.field, focused === 'email' && styles.fieldFocused]}
-            >
-              <Ionicons
-                name="mail-outline"
-                size={20}
-                color={focused === 'email' ? colors.accent : colors.textMuted}
-              />
-              <TextInput
+            <View style={styles.form}>
+              <Field
+                label="Email"
                 value={email}
                 onChangeText={setEmail}
                 onFocus={() => setFocused('email')}
@@ -110,251 +99,170 @@ export default function Login() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="email-address"
+                textContentType="emailAddress"
+                autoComplete="email"
                 placeholder="you@example.com"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
                 editable={!submitting}
                 returnKeyType="next"
               />
-            </View>
 
-            <Text style={styles.label}>Password</Text>
-            <View
-              style={[
-                styles.field,
-                focused === 'password' && styles.fieldFocused,
-              ]}
-            >
-              <Ionicons
-                name="lock-closed-outline"
-                size={20}
-                color={focused === 'password' ? colors.accent : colors.textMuted}
-              />
-              <TextInput
+              <Field
+                label="Password"
                 value={password}
                 onChangeText={setPassword}
                 onFocus={() => setFocused('password')}
                 onBlur={() => setFocused(null)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
+                textContentType="password"
+                autoComplete="current-password"
                 placeholder="Your password"
-                placeholderTextColor={colors.textMuted}
-                style={styles.input}
                 editable={!submitting}
                 returnKeyType="go"
                 onSubmitEditing={handleSubmit}
+                error={error}
+                style={styles.noGap}
               />
-              <Pressable
-                onPress={() => setShowPassword((s) => !s)}
-                hitSlop={10}
-                disabled={submitting}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={colors.textMuted}
+
+              <View style={styles.formMeta}>
+                <Pressable onPress={() => setShowPassword((v) => !v)} hitSlop={8}>
+                  <Text style={styles.metaLink}>
+                    {showPassword ? 'Hide' : 'Show'} password
+                  </Text>
+                </Pressable>
+                <Pressable onPress={handleForgot} hitSlop={8}>
+                  <Text style={styles.metaLink}>Forgot?</Text>
+                </Pressable>
+              </View>
+
+              <Button
+                title="Log in"
+                onPress={handleSubmit}
+                loading={submitting}
+              />
+
+              <View style={styles.orRow}>
+                <View style={styles.orLine} />
+                <Text style={styles.orText}>or continue with</Text>
+                <View style={styles.orLine} />
+              </View>
+
+              <View style={styles.socialRow}>
+                <Button
+                  title="Apple"
+                  variant="secondary"
+                  onPress={() => handleSocial('Apple')}
+                  style={styles.socialBtn}
                 />
+                <Button
+                  title="Google"
+                  variant="secondary"
+                  onPress={() => handleSocial('Google')}
+                  style={styles.socialBtn}
+                />
+              </View>
+            </View>
+          </Card>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>No account yet? </Text>
+            <Link href="/signup" asChild>
+              <Pressable hitSlop={8}>
+                <Text style={styles.footerLink}>Sign up</Text>
               </Pressable>
-            </View>
-
-            <Pressable
-              onPress={handleForgot}
-              hitSlop={8}
-              style={styles.forgotWrap}
-            >
-              <Text style={styles.forgotText}>Forgot password?</Text>
-            </Pressable>
-
-            {error && <Text style={styles.error}>{error}</Text>}
-
-            <Pressable
-              onPress={handleSubmit}
-              disabled={submitting}
-              style={({ pressed }) => [
-                styles.button,
-                (submitting || pressed) && styles.buttonPressed,
-              ]}
-            >
-              {submitting ? (
-                <ActivityIndicator color={colors.background} />
-              ) : (
-                <Text style={styles.buttonText}>Log in</Text>
-              )}
-            </Pressable>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or continue with</Text>
-              <View style={styles.dividerLine} />
-            </View>
-
-            <View style={styles.socialRow}>
-              <Pressable
-                onPress={() => handleSocial('Apple')}
-                style={({ pressed }) => [
-                  styles.socialButton,
-                  styles.socialApple,
-                  pressed && styles.buttonPressed,
-                ]}
-              >
-                <Ionicons name="logo-apple" size={20} color={colors.background} />
-                <Text style={styles.socialAppleText}>Apple</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => handleSocial('Google')}
-                style={({ pressed }) => [
-                  styles.socialButton,
-                  styles.socialGoogle,
-                  pressed && styles.buttonPressed,
-                ]}
-              >
-                <Ionicons name="logo-google" size={20} color="#4285F4" />
-                <Text style={styles.socialGoogleText}>Google</Text>
-              </Pressable>
-            </View>
-
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don&apos;t have an account? </Text>
-              <Link href="/signup" style={styles.footerLink}>
-                Sign up
-              </Link>
-            </View>
+            </Link>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.dark },
   flex: { flex: 1 },
-  scroll: { flexGrow: 1, backgroundColor: colors.background },
+  scroll: {
+    flexGrow: 1,
+    paddingHorizontal: gutter,
+    paddingBottom: space.xxl,
+  },
 
-  hero: {
-    paddingTop: Platform.OS === 'ios' ? 88 : 72,
-    paddingBottom: 56,
-    paddingHorizontal: 28,
+  head: { paddingTop: space.lg, paddingBottom: space.xxl },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  mark: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '12deg' }],
+  },
+  markGlyph: {
+    fontFamily: fonts.sansBold,
+    fontSize: 17,
+    color: '#FFFFFF',
+    transform: [{ rotate: '-12deg' }],
   },
   brand: {
-    fontSize: 44,
-    fontWeight: '800',
-    color: colors.background,
-    letterSpacing: -1,
+    fontFamily: fonts.sansBold,
+    fontSize: 21,
+    letterSpacing: -0.5,
+    color: colors.ink,
   },
   tagline: {
-    marginTop: 8,
-    fontSize: 15,
-    lineHeight: 22,
-    color: 'rgba(255,255,255,0.88)',
-    maxWidth: 260,
+    marginTop: space.lg,
+    fontFamily: fonts.sansBold,
+    fontSize: 26,
+    lineHeight: 33,
+    letterSpacing: -0.8,
+    color: colors.ink,
   },
 
-  sheet: {
-    flex: 1,
-    marginTop: -28,
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 32,
+  card: {},
+  title: {
+    fontFamily: fonts.sansBold,
+    fontSize: 23,
+    letterSpacing: -0.6,
+    color: colors.ink,
+  },
+  subtitle: { ...type.bodyMuted, marginTop: space.xs },
+
+  form: { marginTop: space.xl },
+  noGap: { marginBottom: space.sm },
+
+  formMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: space.lg,
+  },
+  metaLink: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12.5,
+    color: colors.muted,
   },
 
-  title: { fontSize: 28, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginTop: 4,
-    marginBottom: 20,
-  },
-
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 14,
-    marginBottom: 6,
-  },
-  field: {
+  orRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    backgroundColor: colors.surface,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    height: 54,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    gap: space.md,
+    marginVertical: space.lg,
   },
-  fieldFocused: {
-    borderColor: colors.accent,
-    backgroundColor: colors.background,
-    ...shadows.card,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    height: '100%',
-  },
+  orLine: { flex: 1, height: 1, backgroundColor: colors.line },
+  orText: { fontFamily: fonts.sans, fontSize: 12, color: colors.muted },
 
-  forgotWrap: { alignSelf: 'flex-end', marginTop: 12 },
-  forgotText: { color: colors.accent, fontSize: 13, fontWeight: '600' },
-
-  error: { color: colors.danger, fontSize: 13, marginTop: 14 },
-
-  button: {
-    marginTop: 20,
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadows.button,
-  },
-  buttonPressed: { opacity: 0.85 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
-
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 18,
-  },
-  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.textMuted, opacity: 0.4 },
-  dividerText: {
-    marginHorizontal: 12,
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-
-  socialRow: { flexDirection: 'row', gap: 12 },
-  socialButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 52,
-    borderRadius: 14,
-  },
-  socialApple: { backgroundColor: colors.dark },
-  socialAppleText: { color: colors.background, fontSize: 15, fontWeight: '700' },
-  socialGoogle: {
-    backgroundColor: colors.background,
-    borderWidth: 1.5,
-    borderColor: colors.surface,
-  },
-  socialGoogleText: { color: colors.dark, fontSize: 15, fontWeight: '700' },
+  socialRow: { flexDirection: 'row', gap: space.md },
+  socialBtn: { flex: 1, paddingHorizontal: space.md },
 
   footer: {
-    marginTop: 'auto',
-    paddingTop: 28,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: space.xxl,
   },
-  footerText: { color: colors.textMuted, fontSize: 14 },
-  footerLink: { color: colors.accent, fontSize: 14, fontWeight: '600' },
+  footerText: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.muted },
+  footerLink: {
+    fontFamily: fonts.sansBold,
+    fontSize: 13.5,
+    color: colors.accent,
+  },
 });

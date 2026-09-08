@@ -1,10 +1,7 @@
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
@@ -12,7 +9,8 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { verifyAge } from '../api/arenaApi';
-import { colors, shadows } from '../constants/theme';
+import { colors, fonts, gutter, radius, space, type } from '../constants/theme';
+import { Button, Card, Pill, Screen, TopBar } from '../components/ui';
 
 export default function ArenaVerify() {
   const [month, setMonth] = useState('');
@@ -62,7 +60,9 @@ export default function ArenaVerify() {
         setError('Arena is 18+. You can keep playing Friends dares.');
         return;
       }
-      router.back();
+      // Land in the unlocked Arena rather than going back to whatever gate
+      // sent us here.
+      router.replace('/arena');
     } catch (err) {
       setError(err?.message ?? 'Could not verify. Please try again.');
     } finally {
@@ -70,134 +70,142 @@ export default function ArenaVerify() {
     }
   }
 
+  const boxProps = {
+    keyboardType: 'number-pad',
+    placeholderTextColor: colors.muted,
+    editable: !submitting,
+  };
+
   return (
-    <SafeAreaView style={styles.safe}>
+    <Screen>
+      <TopBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
       >
         <View style={styles.container}>
-          <Text style={styles.title}>Unlock Arena</Text>
-          <Text style={styles.subtitle}>
-            Arena mode is for users 18 and over. Confirm your date of birth to
-            unlock dares from strangers.
-          </Text>
+          <Card tone="navy" style={styles.intro}>
+            <Pill tone="lime">18+ only</Pill>
+            <Text style={styles.title}>
+              Prove you{'\u2019'}re old enough
+            </Text>
+            <Text style={styles.subtitle}>
+              Arena pairs you with strangers. We only check your age — the date
+              isn{'\u2019'}t shown on your profile.
+            </Text>
+          </Card>
 
-          <Text style={styles.label}>Date of birth</Text>
-          <View style={styles.dobRow}>
-            <TextInput
-              value={month}
-              onChangeText={(t) => {
-                const v = t.replace(/[^0-9]/g, '').slice(0, 2);
-                setMonth(v);
-                if (v.length === 2) dayRef.current?.focus();
-              }}
-              keyboardType="number-pad"
-              placeholder="MM"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, styles.dobInput]}
-              editable={!submitting}
-              maxLength={2}
+          <Card style={styles.card}>
+            <Text style={[type.label, styles.dobLabel]}>Date of birth</Text>
+            <View style={styles.dobRow}>
+              <TextInput
+                value={month}
+                onChangeText={(t) => {
+                  const v = t.replace(/[^0-9]/g, '').slice(0, 2);
+                  setMonth(v);
+                  if (v.length === 2) dayRef.current?.focus();
+                }}
+                placeholder="MM"
+                maxLength={2}
+                style={[styles.box, month && styles.boxFilled]}
+                {...boxProps}
+              />
+              <Text style={styles.slash}>/</Text>
+              <TextInput
+                ref={dayRef}
+                value={day}
+                onChangeText={(t) => {
+                  const v = t.replace(/[^0-9]/g, '').slice(0, 2);
+                  setDay(v);
+                  if (v.length === 2) yearRef.current?.focus();
+                }}
+                placeholder="DD"
+                maxLength={2}
+                style={[styles.box, day && styles.boxFilled]}
+                {...boxProps}
+              />
+              <Text style={styles.slash}>/</Text>
+              <TextInput
+                ref={yearRef}
+                value={year}
+                onChangeText={(t) =>
+                  setYear(t.replace(/[^0-9]/g, '').slice(0, 4))
+                }
+                placeholder="YYYY"
+                maxLength={4}
+                style={[styles.box, styles.boxYear, year && styles.boxFilled]}
+                {...boxProps}
+              />
+            </View>
+
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+
+            <Button
+              title="Verify age"
+              onPress={handleSubmit}
+              loading={submitting}
+              style={styles.cta}
             />
-            <TextInput
-              ref={dayRef}
-              value={day}
-              onChangeText={(t) => {
-                const v = t.replace(/[^0-9]/g, '').slice(0, 2);
-                setDay(v);
-                if (v.length === 2) yearRef.current?.focus();
-              }}
-              keyboardType="number-pad"
-              placeholder="DD"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, styles.dobInput]}
-              editable={!submitting}
-              maxLength={2}
-            />
-            <TextInput
-              ref={yearRef}
-              value={year}
-              onChangeText={(t) => setYear(t.replace(/[^0-9]/g, '').slice(0, 4))}
-              keyboardType="number-pad"
-              placeholder="YYYY"
-              placeholderTextColor={colors.textMuted}
-              style={[styles.input, styles.dobInputYear]}
-              editable={!submitting}
-              maxLength={4}
-            />
-          </View>
+          </Card>
 
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <Pressable
-            onPress={handleSubmit}
-            disabled={submitting}
-            style={({ pressed }) => [
-              styles.button,
-              (submitting || pressed) && styles.buttonPressed,
-            ]}
-          >
-            {submitting ? (
-              <ActivityIndicator color={colors.background} />
-            ) : (
-              <Text style={styles.buttonText}>Verify</Text>
-            )}
-          </Pressable>
-
-          <Pressable onPress={() => router.back()} hitSlop={8} style={styles.cancel}>
-            <Text style={styles.cancelText}>Not now</Text>
-          </Pressable>
+          <Button
+            title="Not now"
+            variant="ghost"
+            onPress={() => router.back()}
+            style={styles.ghost}
+          />
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 32, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
+  container: { flex: 1, paddingHorizontal: gutter, justifyContent: 'center' },
+
+  intro: {},
+  title: {
+    fontFamily: fonts.sansBold,
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: -0.8,
+    color: '#FFFFFF',
+    marginTop: space.md,
+  },
   subtitle: {
+    fontFamily: fonts.sans,
     fontSize: 14,
-    color: colors.textMuted,
-    marginTop: 8,
-    marginBottom: 24,
-    lineHeight: 20,
+    lineHeight: 21,
+    color: 'rgba(255,255,255,0.65)',
+    marginTop: space.sm,
   },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 8,
-  },
-  dobRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 6,
-  },
-  input: {
+
+  card: { marginTop: space.md },
+  dobLabel: { marginBottom: space.md },
+  dobRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  box: {
+    width: 64,
     backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    fontSize: 17,
+    fontFamily: fonts.sansBold,
+    color: colors.ink,
     textAlign: 'center',
   },
-  dobInput: { width: 72 },
-  dobInputYear: { width: 100 },
-  error: { color: colors.danger, fontSize: 13, marginTop: 16 },
-  button: {
-    marginTop: 24,
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadows.button,
+  boxYear: { width: 90 },
+  boxFilled: { borderColor: colors.accent },
+  slash: { fontFamily: fonts.sans, fontSize: 17, color: colors.line },
+
+  error: {
+    marginTop: space.md,
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
+    color: colors.danger,
   },
-  buttonPressed: { opacity: 0.85 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
-  cancel: { marginTop: 16, alignItems: 'center' },
-  cancelText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  cta: { marginTop: space.xl },
+  ghost: { marginTop: space.md },
 });

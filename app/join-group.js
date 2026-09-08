@@ -3,20 +3,18 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { colors, shadows } from '../constants/theme';
+import { colors, fonts, gutter, radius, space, type } from '../constants/theme';
 import {
   lookupGroupByInviteCode,
   joinGroupByInviteCode,
 } from '../api/groupApi';
-import BackBar from '../components/BackBar';
+import { Button, Card, Pill, Screen, TopBar } from '../components/ui';
 
 const CODE_LENGTH = 6;
 const MAX_MEMBERS = 15;
@@ -98,178 +96,121 @@ export default function JoinGroup() {
   const canJoin = preview && !isFull && !isAlreadyMember;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <BackBar />
+    <Screen>
+      <TopBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
       >
         <View style={styles.container}>
-          <Text style={styles.title}>Join a group</Text>
+          <Text style={styles.title}>Got a code?</Text>
           <Text style={styles.subtitle}>
             Enter the 6-character invite code your friend shared.
           </Text>
 
-          <Text style={styles.label}>Invite code</Text>
-          <TextInput
-            value={code}
-            onChangeText={handleChangeCode}
-            placeholder="ABCDEF"
-            placeholderTextColor={colors.textMuted}
-            style={styles.codeInput}
-            autoCapitalize="characters"
-            autoCorrect={false}
-            autoComplete="off"
-            maxLength={CODE_LENGTH}
-            editable={!joining}
-            returnKeyType="done"
-          />
-
-          {lookingUp && (
-            <View style={styles.lookupRow}>
-              <ActivityIndicator color={colors.accent} />
-              <Text style={styles.lookupText}>Looking up group…</Text>
-            </View>
-          )}
-
-          {lookupError && !lookingUp && (
-            <Text style={styles.error}>{lookupError}</Text>
-          )}
-
-          {preview && !lookingUp && (
-            <View style={styles.preview}>
-              <Text style={styles.previewName}>{preview.name}</Text>
-              <Text style={styles.previewCount}>
-                {preview.member_count}/{MAX_MEMBERS} members
-              </Text>
-
-              {isAlreadyMember && (
-                <Text style={styles.previewNote}>
-                  You're already in this group.
-                </Text>
-              )}
-              {isFull && !isAlreadyMember && (
-                <Text style={styles.previewNoteDanger}>
-                  This group is full.
-                </Text>
-              )}
-            </View>
-          )}
-
-          {joinError && <Text style={styles.error}>{joinError}</Text>}
-
-          {isAlreadyMember ? (
-            <Pressable
-              onPress={handleOpenGroup}
-              style={({ pressed }) => [
-                styles.button,
-                pressed && styles.buttonPressed,
+          <Card style={styles.card}>
+            <TextInput
+              value={code}
+              onChangeText={handleChangeCode}
+              placeholder="ABCDEF"
+              placeholderTextColor={colors.line}
+              style={[
+                styles.codeInput,
+                code.length > 0 && styles.codeInputFilled,
               ]}
-            >
-              <Text style={styles.buttonText}>Open group</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={handleJoin}
-              disabled={!canJoin || joining}
-              style={({ pressed }) => [
-                styles.button,
-                (!canJoin || joining) && styles.buttonDisabled,
-                pressed && canJoin && !joining && styles.buttonPressed,
-              ]}
-            >
-              {joining ? (
-                <ActivityIndicator color={colors.background} />
-              ) : (
-                <Text style={styles.buttonText}>Join group</Text>
-              )}
-            </Pressable>
-          )}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              autoComplete="off"
+              maxLength={CODE_LENGTH}
+              editable={!joining}
+              returnKeyType="done"
+            />
+
+            <View style={styles.statusSlot}>
+              {lookingUp ? (
+                <View style={styles.lookupRow}>
+                  <ActivityIndicator color={colors.accent} size="small" />
+                  <Text style={styles.lookupText}>Looking up group…</Text>
+                </View>
+              ) : lookupError ? (
+                <Text style={styles.error}>{lookupError}</Text>
+              ) : preview ? (
+                <View style={styles.previewRow}>
+                  <View style={styles.previewMain}>
+                    <Text style={styles.previewName}>{preview.name}</Text>
+                    <Text style={styles.previewCount}>
+                      {preview.member_count}/{MAX_MEMBERS} members
+                    </Text>
+                  </View>
+                  {isAlreadyMember ? (
+                    <Pill tone="success">Joined</Pill>
+                  ) : isFull ? (
+                    <Pill tone="danger">Full</Pill>
+                  ) : (
+                    <Pill tone="lime">Open</Pill>
+                  )}
+                </View>
+              ) : null}
+            </View>
+
+            {joinError ? <Text style={styles.error}>{joinError}</Text> : null}
+
+            {isAlreadyMember ? (
+              <Button title="Open group" onPress={handleOpenGroup} />
+            ) : (
+              <Button
+                title="Join group"
+                onPress={handleJoin}
+                loading={joining}
+                disabled={!canJoin}
+              />
+            )}
+          </Card>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
+  container: { flex: 1, paddingHorizontal: gutter, justifyContent: 'center' },
 
-  title: { fontSize: 32, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginTop: 4,
-    marginBottom: 24,
-  },
+  title: { ...type.display, fontSize: 32, lineHeight: 38 },
+  subtitle: { ...type.bodyMuted, marginTop: space.sm },
+  card: { marginTop: space.xl },
 
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 16,
-  },
   codeInput: {
     backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 18,
-    fontSize: 28,
-    fontWeight: '700',
-    letterSpacing: 8,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    borderRadius: radius.lg,
+    paddingVertical: space.xl,
+    fontSize: 27,
+    fontFamily: fonts.sansBold,
+    letterSpacing: 9,
     textAlign: 'center',
-    color: colors.dark,
-    marginTop: 6,
+    color: colors.ink,
   },
+  codeInputFilled: { borderColor: colors.accent },
 
-  lookupRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 16,
+  statusSlot: {
+    minHeight: 58,
+    justifyContent: 'center',
+    marginVertical: space.md,
   },
-  lookupText: {
-    marginLeft: 8,
-    color: colors.textMuted,
-    fontSize: 14,
-  },
+  lookupRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  lookupText: { ...type.small },
 
-  preview: {
-    backgroundColor: colors.background,
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 18,
-    marginTop: 16,
-    ...shadows.card,
-  },
-  previewName: { fontSize: 18, fontWeight: '700', color: colors.dark },
-  previewCount: {
-    marginTop: 4,
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  previewNote: {
-    marginTop: 12,
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-  previewNoteDanger: {
-    marginTop: 12,
-    fontSize: 13,
+  previewRow: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  previewMain: { flex: 1 },
+  previewName: { fontFamily: fonts.sansBold, fontSize: 16, color: colors.ink },
+  previewCount: { ...type.small, marginTop: 1 },
+
+  error: {
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
     color: colors.danger,
+    marginBottom: space.md,
   },
-
-  error: { color: colors.danger, fontSize: 13, marginTop: 16 },
-
-  button: {
-    marginTop: 24,
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadows.button,
-  },
-  buttonDisabled: { backgroundColor: colors.textMuted, opacity: 0.6 },
-  buttonPressed: { opacity: 0.85 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
 });

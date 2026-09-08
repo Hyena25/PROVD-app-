@@ -1,20 +1,17 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  SafeAreaView,
+  Share,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { colors, shadows } from '../constants/theme';
+import { colors, fonts, gutter, radius, space, type } from '../constants/theme';
 import { createGroup } from '../api/groupApi';
-import BackBar from '../components/BackBar';
+import { Button, Card, Field, Pill, Screen, TopBar } from '../components/ui';
 
 const MAX_NAME_LENGTH = 30;
 
@@ -59,149 +56,111 @@ export default function CreateGroup() {
   }
 
   if (createdGroup) {
+    const shareCode = () =>
+      Share.share({
+        message: `Join "${createdGroup.name}" on Provd — invite code ${createdGroup.invite_code}`,
+      }).catch(() => {});
+
     return (
-      <SafeAreaView style={styles.safe}>
+      <Screen>
         <View style={styles.container}>
-          <Text style={styles.title}>Group created</Text>
-          <Text style={styles.subtitle}>
-            Share this invite code so friends can join {createdGroup.name}.
-          </Text>
+          <Card tone="lime">
+            <Pill tone="neutral">Group created</Pill>
+            <Text style={styles.doneTitle}>{createdGroup.name}</Text>
+            <Text style={styles.doneBody}>
+              Share this code so your friends can join.
+            </Text>
+            <View style={styles.codeBox}>
+              <Text style={styles.code}>{createdGroup.invite_code}</Text>
+            </View>
+          </Card>
 
-          <View style={styles.codeBox}>
-            <Text style={styles.code}>{createdGroup.invite_code}</Text>
-            <Text style={styles.codeLabel}>Invite code</Text>
-          </View>
-
-          <Pressable
+          <Button title="Share invite" onPress={shareCode} style={styles.cta} />
+          <Button
+            title="Continue to group"
+            variant="ghost"
             onPress={handleContinue}
-            style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          >
-            <Text style={styles.buttonText}>Continue to group</Text>
-          </Pressable>
+            style={styles.ghost}
+          />
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <BackBar />
+    <Screen>
+      <TopBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
       >
         <View style={styles.container}>
-          <Text style={styles.title}>New group</Text>
+          <Text style={styles.title}>Name your squad</Text>
           <Text style={styles.subtitle}>
-            Give your group a name your friends will recognize.
+            Something your friends will recognise.
           </Text>
 
-          <Text style={styles.label}>Group name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Sunday Squad"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            maxLength={MAX_NAME_LENGTH}
-            editable={!submitting}
-            returnKeyType="done"
-            onSubmitEditing={handleSubmit}
-          />
-          <Text style={styles.helper}>
-            {name.length}/{MAX_NAME_LENGTH}
-          </Text>
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <Pressable
-            onPress={handleSubmit}
-            disabled={submitting}
-            style={({ pressed }) => [
-              styles.button,
-              (submitting || pressed) && styles.buttonPressed,
-            ]}
-          >
-            {submitting ? (
-              <ActivityIndicator color={colors.background} />
-            ) : (
-              <Text style={styles.buttonText}>Create group</Text>
-            )}
-          </Pressable>
+          <Card style={styles.card}>
+            <Field
+              label="Group name"
+              value={name}
+              onChangeText={setName}
+              placeholder="Sunday Squad"
+              maxLength={MAX_NAME_LENGTH}
+              editable={!submitting}
+              returnKeyType="done"
+              onSubmitEditing={handleSubmit}
+              hint={`${name.length}/${MAX_NAME_LENGTH}`}
+              error={error}
+            />
+            <Button
+              title="Create group"
+              onPress={handleSubmit}
+              loading={submitting}
+            />
+          </Card>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
+  container: { flex: 1, paddingHorizontal: gutter, justifyContent: 'center' },
 
-  title: { fontSize: 32, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
-  subtitle: {
+  title: { ...type.display, fontSize: 32, lineHeight: 38 },
+  subtitle: { ...type.bodyMuted, marginTop: space.sm },
+  card: { marginTop: space.xl },
+
+  doneTitle: {
+    fontFamily: fonts.sansBold,
+    fontSize: 27,
+    letterSpacing: -0.8,
+    color: colors.limeInk,
+    marginTop: space.md,
+  },
+  doneBody: {
+    fontFamily: fonts.sans,
     fontSize: 14,
-    color: colors.textMuted,
-    marginTop: 4,
-    marginBottom: 24,
+    color: colors.limeInk,
+    opacity: 0.75,
+    marginTop: space.xs,
   },
-
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 16,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-    marginTop: 6,
-  },
-  helper: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: 'right',
-  },
-
-  error: { color: colors.danger, fontSize: 13, marginTop: 16 },
-
-  button: {
-    marginTop: 24,
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadows.button,
-  },
-  buttonPressed: { opacity: 0.85 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
-
   codeBox: {
-    backgroundColor: colors.background,
-    borderRadius: 18,
-    paddingVertical: 28,
-    paddingHorizontal: 16,
+    marginTop: space.xl,
+    paddingVertical: space.lg,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(38,49,10,0.1)',
     alignItems: 'center',
-    marginTop: 24,
-    ...shadows.card,
   },
   code: {
-    fontSize: 36,
-    fontWeight: '700',
-    letterSpacing: 6,
-    color: colors.dark,
+    fontFamily: fonts.sansBold,
+    fontSize: 28,
+    letterSpacing: 7,
+    color: colors.limeInk,
   },
-  codeLabel: {
-    marginTop: 8,
-    fontSize: 12,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
+
+  cta: { marginTop: space.lg },
+  ghost: { marginTop: space.sm },
 });

@@ -1,11 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Modal,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -14,7 +12,17 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
 import { supabase } from '../../lib/supabase';
-import { colors, shadows } from '../../constants/theme';
+import { colors, fonts, gutter, radius, space, type } from '../../constants/theme';
+import {
+  Button,
+  Card,
+  ErrorState,
+  IconButton,
+  Loading,
+  Pill,
+  Screen,
+  TopBar,
+} from '../../components/ui';
 import { CATEGORIES, DIFFICULTY_TIERS } from '../../api/dareApi';
 import {
   pickMediaFromCamera,
@@ -200,32 +208,9 @@ export default function DareDetail() {
     );
   }
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (loadError || !dare) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={10}>
-            <Text style={styles.headerLink}>Back</Text>
-          </Pressable>
-        </View>
-        <View style={styles.center}>
-          <Text style={styles.errorText}>
-            {loadError ?? 'Dare not available.'}
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  if (loading) return <Loading />;
+  if (loadError || !dare)
+    return <ErrorState message={loadError ?? 'Dare not available.'} />;
 
   const tier = difficultyTierFor(dare.difficulty);
   const senderName =
@@ -246,10 +231,10 @@ export default function DareDetail() {
       const totalSeconds = Math.floor(ms / 1000);
       const h = Math.floor(totalSeconds / 3600);
       const m = Math.floor((totalSeconds % 3600) / 60);
-      const s = totalSeconds % 60;
+      const sec = totalSeconds % 60;
       countdownText =
-        h > 0 ? `${h}h ${m}m ${s}s` : m > 0 ? `${m}m ${s}s` : `${s}s`;
-      countdownUrgent = ms < 60 * 60 * 1000; // under 1 hour
+        h > 0 ? `${h}h ${m}m ${sec}s` : m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+      countdownUrgent = ms < 60 * 60 * 1000;
     }
   }
 
@@ -262,135 +247,97 @@ export default function DareDetail() {
   const swapDisabled = swapsRemaining <= 0 || actionInFlight !== null;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.headerRow}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Text style={styles.headerLink}>Back</Text>
-        </Pressable>
-        <Pressable
-          onPress={handleFlag}
-          hitSlop={10}
-          style={({ pressed }) => [
-            styles.flagButton,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Text style={styles.flagText}>Report</Text>
-        </Pressable>
-      </View>
+    <Screen>
+      <TopBar right={<IconButton glyph="⚑" onPress={handleFlag} />} />
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <Text style={styles.title}>{dare.title}</Text>
-        <Text style={styles.meta}>
-          From {senderName}
-          {sentAt ? ` • ${sentAt}` : ''}
-        </Text>
-
-        <View style={styles.tagsRow}>
-          <View style={styles.categoryTag}>
-            <Text style={styles.categoryTagText}>
-              {categoryLabelFor(dare.category)}
-            </Text>
-          </View>
-          {tier ? (
-            <View
-              style={[styles.difficultyTag, { backgroundColor: tier.color }]}
-            >
-              <Text style={styles.difficultyTagText}>
-                {tier.label} • {dare.points_value ?? tier.points} pts
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
+        <Card tone="lime" style={styles.hero}>
+          <View style={styles.heroTop}>
+            <Pill tone="neutral">{categoryLabelFor(dare.category)}</Pill>
+            {tier ? (
+              <Text style={styles.tier}>
+                {tier.label} · {dare.points_value ?? tier.points} pts
               </Text>
-            </View>
-          ) : null}
-        </View>
+            ) : null}
+          </View>
+          <Text style={styles.title}>{dare.title}</Text>
+          <Text style={styles.meta}>
+            From {senderName}
+            {sentAt ? ` · ${sentAt}` : ''}
+          </Text>
+        </Card>
 
         {dare.description ? (
-          <Text style={styles.description}>{dare.description}</Text>
+          <Card style={styles.card}>
+            <Text style={styles.descLabel}>The rules</Text>
+            <Text style={styles.description}>{dare.description}</Text>
+          </Card>
         ) : null}
 
-        <View style={styles.countdownBox}>
-          <Text style={styles.countdownLabel}>Time remaining</Text>
+        <Card
+          tone={countdownUrgent ? 'white' : 'navy'}
+          style={styles.card}
+        >
           <Text
-            style={[
-              styles.countdown,
-              countdownUrgent && styles.countdownUrgent,
-            ]}
+            style={[styles.clockLabel, countdownUrgent && styles.clockLabelDark]}
+          >
+            Time remaining
+          </Text>
+          <Text
+            style={[styles.countdown, countdownUrgent && styles.countdownUrgent]}
           >
             {countdownText}
           </Text>
-        </View>
+        </Card>
 
-        {actionError ? (
-          <Text style={styles.errorText}>{actionError}</Text>
-        ) : null}
+        {actionError ? <Text style={styles.error}>{actionError}</Text> : null}
 
         {isPending ? (
-          <View style={styles.actionsCol}>
-            <Pressable
+          <View style={styles.actions}>
+            <Button
+              title="Accept dare"
               onPress={handleAccept}
+              loading={actionInFlight === 'accept'}
               disabled={acceptDisabled}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                pressed && !acceptDisabled && styles.buttonPressed,
-                acceptDisabled && styles.buttonDimmed,
-              ]}
-            >
-              {actionInFlight === 'accept' ? (
-                <ActivityIndicator color={colors.background} />
-              ) : (
-                <Text style={styles.primaryButtonText}>Accept Dare</Text>
-              )}
-            </Pressable>
-            <Pressable
+            />
+            <Button
+              title={`Use weekly swap${
+                swapsRemaining > 0 ? ` · ${swapsRemaining} left` : ''
+              }`}
+              variant="secondary"
               onPress={handleSwap}
+              loading={actionInFlight === 'swap'}
               disabled={swapDisabled}
-              style={({ pressed }) => [
-                styles.secondaryButton,
-                pressed && !swapDisabled && styles.buttonPressed,
-                swapDisabled && styles.secondaryButtonDisabled,
-              ]}
-            >
-              {actionInFlight === 'swap' ? (
-                <ActivityIndicator color={colors.accent} />
-              ) : (
-                <Text
-                  style={[
-                    styles.secondaryButtonText,
-                    swapDisabled && styles.secondaryButtonTextDisabled,
-                  ]}
-                >
-                  Use Weekly Swap
-                  {swapsRemaining > 0 ? ` (${swapsRemaining})` : ''}
-                </Text>
-              )}
-            </Pressable>
+            />
           </View>
         ) : null}
 
         {isActive ? (
-          <Pressable
+          <Button
+            title="Submit proof"
             onPress={handleSubmitProof}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              styles.fullWidthButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>Submit Proof</Text>
-          </Pressable>
+            style={styles.actions}
+          />
         ) : null}
 
         {isAwaitingVotes ? (
-          <View style={styles.reviewBox}>
-            <Text style={styles.reviewTitle}>Proof submitted</Text>
-            <Text style={styles.reviewBody}>
-              Your proof is under review. We'll let you know once your friends
-              have voted.
+          <Card style={styles.card}>
+            <Pill tone="warn">Awaiting votes</Pill>
+            <Text style={styles.noticeTitle}>Proof submitted</Text>
+            <Text style={styles.noticeBody}>
+              Your friends are voting on it now. We{'\u2019'}ll let you know how
+              it lands.
             </Text>
-          </View>
+          </Card>
         ) : null}
 
         {isFinal ? (
-          <Text style={styles.statusNote}>This dare is {dare.status}.</Text>
+          <Card style={styles.card}>
+            <Text style={styles.noticeBody}>This dare is {dare.status}.</Text>
+          </Card>
         ) : null}
       </ScrollView>
 
@@ -411,7 +358,7 @@ export default function DareDetail() {
           />
         ) : null}
       </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -427,20 +374,21 @@ function ProofUploadModalContent({
   const percent = Math.round((progress ?? 0) * 100);
   return (
     <View style={styles.modalBackdrop}>
-      <View style={styles.modalCard}>
+      <View style={styles.modalSheet}>
+        <View style={styles.grabber} />
         <Text style={styles.modalTitle}>Confirm proof</Text>
         <Text style={styles.modalSubtitle}>
-          Make sure this is the proof you want your friends to vote on.
+          This is what your friends will vote on.
         </Text>
 
         {isVideo ? (
           <View style={styles.videoPreview}>
-            <Text style={styles.videoPreviewLabel}>Video selected</Text>
+            <Text style={styles.videoLabel}>Video selected</Text>
             {asset.fileName ? (
-              <Text style={styles.videoPreviewMeta}>{asset.fileName}</Text>
+              <Text style={styles.videoMeta}>{asset.fileName}</Text>
             ) : null}
             {asset.duration ? (
-              <Text style={styles.videoPreviewMeta}>
+              <Text style={styles.videoMeta}>
                 {Math.round(asset.duration / 1000)}s
               </Text>
             ) : null}
@@ -455,46 +403,29 @@ function ProofUploadModalContent({
 
         {uploading ? (
           <View style={styles.progressWrap}>
-            <View style={styles.progressBarBg}>
-              <View
-                style={[styles.progressBarFill, { width: `${percent}%` }]}
-              />
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${percent}%` }]} />
             </View>
             <Text style={styles.progressText}>Uploading… {percent}%</Text>
           </View>
         ) : null}
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.modalActions}>
-          <Pressable
+          <Button
+            title="Cancel"
+            variant="secondary"
             onPress={onCancel}
             disabled={uploading}
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              styles.modalActionButton,
-              pressed && !uploading && styles.buttonPressed,
-              uploading && styles.buttonDimmed,
-            ]}
-          >
-            <Text style={styles.secondaryButtonText}>Cancel</Text>
-          </Pressable>
-          <Pressable
+            style={styles.modalBtn}
+          />
+          <Button
+            title="Upload"
             onPress={onConfirm}
-            disabled={uploading}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              styles.modalActionButton,
-              pressed && !uploading && styles.buttonPressed,
-              uploading && styles.buttonDimmed,
-            ]}
-          >
-            {uploading ? (
-              <ActivityIndicator color={colors.background} />
-            ) : (
-              <Text style={styles.primaryButtonText}>Confirm and Upload</Text>
-            )}
-          </Pressable>
+            loading={uploading}
+            style={styles.modalBtn}
+          />
         </View>
       </View>
     </View>
@@ -502,239 +433,130 @@ function ProofUploadModalContent({
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 24, paddingBottom: 48 },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
+  scroll: { paddingHorizontal: gutter, paddingBottom: space.xxxl },
 
-  headerRow: {
+  hero: {},
+  heroTop: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 4,
   },
-  headerLink: { color: colors.accent, fontSize: 15, fontWeight: '600' },
-  flagButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-  },
-  flagText: { color: colors.danger, fontSize: 13, fontWeight: '600' },
-
-  title: { fontSize: 30, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
-  meta: { fontSize: 14, color: colors.textMuted, marginTop: 6 },
-
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 16,
-    marginHorizontal: -4,
-  },
-  categoryTag: {
-    backgroundColor: colors.surface,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    margin: 4,
-  },
-  categoryTagText: { color: colors.text, fontSize: 13, fontWeight: '600' },
-  difficultyTag: {
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    margin: 4,
-  },
-  difficultyTagText: {
-    color: colors.background,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-
-  description: {
-    marginTop: 16,
-    fontSize: 15,
-    lineHeight: 22,
-    color: colors.text,
-  },
-
-  countdownBox: {
-    marginTop: 24,
-    backgroundColor: colors.background,
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    ...shadows.card,
-  },
-  countdownLabel: {
+  tier: {
+    fontFamily: fonts.sansMedium,
     fontSize: 12,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    color: colors.limeInk,
+    opacity: 0.75,
   },
+  title: {
+    fontFamily: fonts.sansBold,
+    fontSize: 27,
+    lineHeight: 33,
+    letterSpacing: -0.8,
+    color: colors.limeInk,
+    marginTop: space.md,
+  },
+  meta: {
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
+    color: colors.limeInk,
+    opacity: 0.7,
+    marginTop: space.sm,
+  },
+
+  card: { marginTop: space.md },
+  descLabel: { ...type.label, marginBottom: space.xs },
+  description: { ...type.body, fontSize: 15 },
+
+  clockLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  clockLabelDark: { color: colors.muted },
   countdown: {
-    marginTop: 6,
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.dark,
+    fontFamily: fonts.sansBold,
+    fontSize: 36,
+    lineHeight: 46,
+    letterSpacing: -1,
+    color: '#FFFFFF',
     fontVariant: ['tabular-nums'],
+    marginTop: space.xs,
   },
-  countdownUrgent: { color: colors.danger },
+  countdownUrgent: { color: colors.accent },
 
-  errorText: {
+  error: {
+    marginTop: space.md,
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
     color: colors.danger,
-    fontSize: 13,
-    marginTop: 16,
-    textAlign: 'center',
   },
 
-  actionsCol: { marginTop: 24, gap: 12 },
-  primaryButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadows.button,
-  },
-  primaryButtonText: {
-    color: colors.background,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  secondaryButton: {
-    backgroundColor: colors.background,
-    borderColor: colors.accent,
-    borderWidth: 1.5,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  secondaryButtonText: {
-    color: colors.accent,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  secondaryButtonDisabled: {
-    borderColor: colors.textMuted,
-    opacity: 0.6,
-  },
-  secondaryButtonTextDisabled: { color: colors.textMuted },
+  actions: { marginTop: space.xl, gap: space.md },
 
-  buttonPressed: { opacity: 0.85 },
-  buttonDimmed: { opacity: 0.6 },
-  fullWidthButton: { marginTop: 24 },
-
-  statusNote: {
-    marginTop: 24,
-    color: colors.textMuted,
-    fontSize: 14,
-    textAlign: 'center',
+  noticeTitle: {
+    fontFamily: fonts.sansBold,
+    fontSize: 17,
+    color: colors.ink,
+    marginTop: space.md,
   },
-
-  reviewBox: {
-    marginTop: 24,
-    backgroundColor: colors.background,
-    borderRadius: 16,
-    paddingVertical: 24,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    ...shadows.card,
-  },
-  reviewTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.dark,
-  },
-  reviewBody: {
-    marginTop: 8,
-    fontSize: 14,
-    color: colors.textMuted,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  noticeBody: { ...type.body, marginTop: space.xs },
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(20,21,26,0.45)',
     justifyContent: 'flex-end',
   },
-  modalCard: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: 32,
+  modalSheet: {
+    backgroundColor: colors.card,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: space.xl,
+    paddingTop: space.md,
+    paddingBottom: space.xxxl,
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: colors.line,
+    marginBottom: space.xl,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.dark,
+    fontFamily: fonts.sansBold,
+    fontSize: 22,
+    letterSpacing: -0.5,
+    color: colors.ink,
   },
-  modalSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: colors.textMuted,
-  },
+  modalSubtitle: { ...type.bodyMuted, marginTop: space.xs },
 
   previewImage: {
     width: '100%',
-    height: 280,
-    borderRadius: 12,
-    marginTop: 16,
+    height: 250,
+    borderRadius: radius.lg,
+    marginTop: space.xl,
     backgroundColor: colors.surface,
   },
   videoPreview: {
-    width: '100%',
-    height: 160,
-    borderRadius: 12,
-    marginTop: 16,
+    marginTop: space.xl,
+    padding: space.xl,
+    borderRadius: radius.lg,
     backgroundColor: colors.surface,
     alignItems: 'center',
-    justifyContent: 'center',
   },
-  videoPreviewLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.dark,
-  },
-  videoPreviewMeta: {
-    marginTop: 4,
-    fontSize: 12,
-    color: colors.textMuted,
-  },
+  videoLabel: { fontFamily: fonts.sansBold, fontSize: 14, color: colors.ink },
+  videoMeta: { ...type.small, marginTop: 2 },
 
-  progressWrap: { marginTop: 16 },
-  progressBarBg: {
-    height: 8,
+  progressWrap: { marginTop: space.xl },
+  progressTrack: {
+    height: 7,
+    borderRadius: 4,
     backgroundColor: colors.surface,
-    borderRadius: 999,
     overflow: 'hidden',
   },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: 999,
-  },
-  progressText: {
-    marginTop: 6,
-    fontSize: 12,
-    color: colors.textMuted,
-    textAlign: 'right',
-  },
+  progressFill: { height: 7, borderRadius: 4, backgroundColor: colors.accent },
+  progressText: { ...type.small, marginTop: space.sm },
 
-  modalActions: {
-    flexDirection: 'row',
-    marginTop: 20,
-    gap: 10,
-  },
-  modalActionButton: { flex: 1 },
+  modalActions: { flexDirection: 'row', gap: space.md, marginTop: space.xl },
+  modalBtn: { flex: 1 },
 });

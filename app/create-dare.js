@@ -1,19 +1,29 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { colors, shadows } from '../constants/theme';
+import { colors, fonts, gutter, radius, space, type } from '../constants/theme';
+import {
+  Button,
+  Card,
+  Empty,
+  ErrorState,
+  Field,
+  Loading,
+  Pill,
+  Screen,
+  TopBar,
+} from '../components/ui';
 import {
   CATEGORIES,
   DIFFICULTY_TIERS,
@@ -21,7 +31,7 @@ import {
   fetchDareLibrary,
 } from '../api/dareApi';
 import { generateDares } from '../api/aiApi';
-import BackBar from '../components/BackBar';
+import { listMyGroups } from '../api/groupApi';
 
 const MAX_TITLE_LENGTH = 200;
 const TABS = [
@@ -62,12 +72,40 @@ export default function CreateDare() {
   const [aiGenerating, setAiGenerating] = useState(false);
   const [aiError, setAiError] = useState(null);
 
+  const [resolvedGroupId, setResolvedGroupId] = useState(groupId ?? null);
+
+  // The compose button in the tab bar opens this screen with no groupId, so
+  // fall back to the user's first group instead of dead-ending.
   useEffect(() => {
-    if (!groupId) {
-      setLoadingMembers(false);
-      setLoadError('Open this screen from a group to create a dare.');
+    if (groupId) {
+      setResolvedGroupId(groupId);
       return;
     }
+    let cancelled = false;
+    (async () => {
+      try {
+        const mine = await listMyGroups();
+        if (cancelled) return;
+        if (mine?.length) {
+          setResolvedGroupId(mine[0].id);
+        } else {
+          setLoadingMembers(false);
+          setLoadError('Join or create a group first — dares go to a group.');
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setLoadingMembers(false);
+          setLoadError(err?.message ?? 'Could not load your groups.');
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [groupId]);
+
+  useEffect(() => {
+    if (!resolvedGroupId) return;
 
     let cancelled = false;
     async function load() {
@@ -83,7 +121,7 @@ export default function CreateDare() {
 
         const { data, error: rpcError } = await supabase.rpc(
           'get_group_overview',
-          { p_group_id: groupId }
+          { p_group_id: resolvedGroupId }
         );
         if (rpcError) {
           const m = rpcError.message ?? '';
@@ -105,7 +143,7 @@ export default function CreateDare() {
     return () => {
       cancelled = true;
     };
-  }, [groupId]);
+  }, [resolvedGroupId]);
 
   useEffect(() => {
     if (activeTab !== 'library') return;
@@ -189,9 +227,9 @@ export default function CreateDare() {
         category,
         difficulty,
         targetUserId,
-        groupId,
+        groupId: resolvedGroupId,
       });
-      router.replace(`/group/${groupId}`);
+      router.replace(`/group/${resolvedGroupId}`);
     } catch (err) {
       setSubmitError(err?.message ?? 'Could not create the dare. Please try again.');
     } finally {
@@ -199,35 +237,17 @@ export default function CreateDare() {
     }
   }
 
-  if (loadingMembers) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <BackBar />
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{loadError}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  if (loadingMembers) return <Loading />;
+  if (loadError) return <ErrorState message={loadError} />;
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <BackBar />
+    <Screen>
+      <TopBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
       >
-        <View style={styles.tabBar}>
+        <View style={styles.tabWrap}>
           {TABS.map((tab) => {
             const active = activeTab === tab.key;
             return (
@@ -235,15 +255,10 @@ export default function CreateDare() {
                 key={tab.key}
                 onPress={() => !tab.disabled && setActiveTab(tab.key)}
                 disabled={tab.disabled}
-                style={[
-                  styles.tab,
-                  active && styles.tabActive,
-                  tab.disabled && styles.tabDisabled,
-                ]}
+                style={[styles.tab, active && styles.tabActive]}
               >
                 <Text
                   numberOfLines={1}
-                  adjustsFontSizeToFit
                   style={[
                     styles.tabText,
                     active && styles.tabTextActive,
@@ -260,6 +275,7 @@ export default function CreateDare() {
         <ScrollView
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           {activeTab === 'write' && (
             <WriteTab
@@ -302,7 +318,80 @@ export default function CreateDare() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
+  );
+}
+
+/** Selectable pill used for targets and categories. */
+function SelectChip({ label, selected, onPress }) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.selChip,
+        selected && styles.selChipOn,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={[styles.selChipText, selected && styles.selChipTextOn]}>
+        {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/** Difficulty row: a colour dot carries the tier so the row stays quiet. */
+function TierRow({ tier, selected, onPress, last }) {
+  const tone = colors[tier.key] ?? colors.muted;
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.tier,
+        !last && styles.tierDivided,
+        pressed && styles.pressed,
+      ]}
+    >
+      <View style={[styles.tierDot, { backgroundColor: tone }]} />
+      <View style={styles.tierMain}>
+        <Text style={styles.tierLabel}>{tier.label}</Text>
+        <Text style={styles.tierMeta}>
+          {tier.points} pts · {tier.hours}h window
+        </Text>
+      </View>
+      <View style={[styles.radio, selected && { borderColor: tone }]}>
+        {selected ? (
+          <View style={[styles.radioDot, { backgroundColor: tone }]} />
+        ) : null}
+      </View>
+    </Pressable>
+  );
+}
+
+/** Tappable suggestion used by both the library and AI tabs. */
+function SuggestionRow({ item, onPick }) {
+  const tier = difficultyTierFor(item.suggested_difficulty);
+  return (
+    <Card style={styles.suggestion} onPress={() => onPick(item)}>
+      <View style={styles.suggestionTop}>
+        <Text style={styles.suggestionTitle}>{item.title}</Text>
+        {tier ? (
+          <Text
+            style={[
+              styles.suggestionTier,
+              { color: colors[tier.key] ?? colors.muted },
+            ]}
+          >
+            {tier.points} pts
+          </Text>
+        ) : null}
+      </View>
+      {item.description ? (
+        <Text style={styles.suggestionBody} numberOfLines={2}>
+          {item.description}
+        </Text>
+      ) : null}
+    </Card>
   );
 }
 
@@ -324,120 +413,82 @@ function WriteTab({
 }) {
   return (
     <>
-      <Text style={styles.title}>New dare</Text>
+      <Text style={styles.h1}>New dare</Text>
 
-      <Text style={styles.sectionLabel}>Target</Text>
-      {members.length === 0 ? (
-        <Text style={styles.empty}>No other members in this group yet.</Text>
-      ) : (
-        <View style={styles.chipRow}>
-          {members.map((m) => {
-            const selected = targetUserId === m.user_id;
-            return (
-              <Pressable
-                key={m.user_id}
-                onPress={() => setTargetUserId(m.user_id)}
-                style={[styles.chip, selected && styles.chipSelected]}
-              >
-                <Text
-                  style={[styles.chipText, selected && styles.chipTextSelected]}
-                >
-                  {m.display_name?.trim() || `@${m.username}`}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      )}
-
-      <Text style={styles.sectionLabel}>Title</Text>
-      <TextInput
-        value={title}
-        onChangeText={setTitle}
-        placeholder="Run a mile in under 8 minutes"
-        placeholderTextColor={colors.textMuted}
-        style={styles.input}
-        maxLength={MAX_TITLE_LENGTH}
-        editable={!submitting}
-      />
-      <Text style={styles.helper}>
-        {title.length}/{MAX_TITLE_LENGTH}
-      </Text>
-
-      <Text style={styles.sectionLabel}>Description (optional)</Text>
-      <TextInput
-        value={description}
-        onChangeText={setDescription}
-        placeholder="Add any rules or context"
-        placeholderTextColor={colors.textMuted}
-        style={[styles.input, styles.textarea]}
-        multiline
-        editable={!submitting}
-      />
-
-      <Text style={styles.sectionLabel}>Category</Text>
-      <View style={styles.chipRow}>
-        {CATEGORIES.map((c) => {
-          const selected = category === c.key;
-          return (
-            <Pressable
-              key={c.key}
-              onPress={() => setCategory(c.key)}
-              style={[styles.chip, selected && styles.chipSelected]}
-            >
-              <Text
-                style={[styles.chipText, selected && styles.chipTextSelected]}
-              >
-                {c.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      <Text style={styles.sectionLabel}>Difficulty</Text>
-      <View style={styles.tierList}>
-        {DIFFICULTY_TIERS.map((t) => {
-          const selected = difficulty === t.key;
-          return (
-            <Pressable
-              key={t.key}
-              onPress={() => setDifficulty(t.key)}
-              style={[
-                styles.tier,
-                { borderColor: t.color },
-                selected && { backgroundColor: t.color, borderColor: t.color },
-              ]}
-            >
-              <View style={styles.tierMain}>
-                <Text style={[styles.tierLabel, selected && styles.tierTextOnFill]}>
-                  {t.label}
-                </Text>
-                <Text style={[styles.tierMeta, selected && styles.tierTextOnFill]}>
-                  {t.points} pts • {t.hours}h window
-                </Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-
-      {submitError && <Text style={styles.errorText}>{submitError}</Text>}
-
-      <Pressable
-        onPress={onSubmit}
-        disabled={submitting}
-        style={({ pressed }) => [
-          styles.submitButton,
-          (submitting || pressed) && styles.submitButtonPressed,
-        ]}
-      >
-        {submitting ? (
-          <ActivityIndicator color={colors.background} />
+      <Card style={styles.card}>
+        <Text style={[type.label, styles.cardLabel]}>Who gets it</Text>
+        {members.length === 0 ? (
+          <Empty>No other members in this group yet.</Empty>
         ) : (
-          <Text style={styles.submitText}>Send dare</Text>
+          <View style={styles.chipRow}>
+            {members.map((m) => (
+              <SelectChip
+                key={m.user_id}
+                label={m.display_name?.trim() || `@${m.username}`}
+                selected={targetUserId === m.user_id}
+                onPress={() => setTargetUserId(m.user_id)}
+              />
+            ))}
+          </View>
         )}
-      </Pressable>
+      </Card>
+
+      <Card style={styles.card}>
+        <Text style={[type.label, styles.cardLabel]}>The dare</Text>
+        <Field
+          value={title}
+          onChangeText={setTitle}
+          placeholder="Run a mile in under 8 minutes"
+          maxLength={MAX_TITLE_LENGTH}
+          editable={!submitting}
+          hint={`${title.length}/${MAX_TITLE_LENGTH}`}
+        />
+        <Field
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Any rules or context (optional)"
+          multiline
+          editable={!submitting}
+          inputStyle={styles.textarea}
+          style={styles.lastField}
+        />
+      </Card>
+
+      <Card style={styles.card}>
+        <Text style={[type.label, styles.cardLabel]}>Category</Text>
+        <View style={styles.chipRow}>
+          {CATEGORIES.map((c) => (
+            <SelectChip
+              key={c.key}
+              label={c.label}
+              selected={category === c.key}
+              onPress={() => setCategory(c.key)}
+            />
+          ))}
+        </View>
+      </Card>
+
+      <Card style={styles.card}>
+        <Text style={[type.label, styles.cardLabel]}>Difficulty</Text>
+        {DIFFICULTY_TIERS.map((t, i) => (
+          <TierRow
+            key={t.key}
+            tier={t}
+            selected={difficulty === t.key}
+            onPress={() => setDifficulty(t.key)}
+            last={i === DIFFICULTY_TIERS.length - 1}
+          />
+        ))}
+      </Card>
+
+      {submitError ? <Text style={styles.error}>{submitError}</Text> : null}
+
+      <Button
+        title="Send dare"
+        onPress={onSubmit}
+        loading={submitting}
+        style={styles.submit}
+      />
     </>
   );
 }
@@ -452,76 +503,45 @@ function LibraryTab({
 }) {
   return (
     <>
-      <Text style={styles.title}>Pick a dare</Text>
-      <Text style={styles.subtitle}>
-        Tap one to drop it into the Write tab. You can edit before sending.
+      <Text style={styles.h1}>Pick a dare</Text>
+      <Text style={styles.sub}>
+        Tap one to drop it into Write. You can edit before sending.
       </Text>
 
-      <Text style={styles.sectionLabel}>Category</Text>
-      <View style={styles.chipRow}>
-        {CATEGORIES.map((c) => {
-          const selected = libraryCategory === c.key;
-          return (
-            <Pressable
+      <Card style={styles.card}>
+        <Text style={[type.label, styles.cardLabel]}>Category</Text>
+        <View style={styles.chipRow}>
+          {CATEGORIES.map((c) => (
+            <SelectChip
               key={c.key}
+              label={c.label}
+              selected={libraryCategory === c.key}
               onPress={() => setLibraryCategory(c.key)}
-              style={[styles.chip, selected && styles.chipSelected]}
-            >
-              <Text
-                style={[styles.chipText, selected && styles.chipTextSelected]}
-              >
-                {c.label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+            />
+          ))}
+        </View>
+      </Card>
 
-      <View style={styles.libraryListWrap}>
-        {loading ? (
-          <View style={styles.libraryLoadingRow}>
-            <ActivityIndicator color={colors.accent} />
-            <Text style={styles.libraryLoadingText}>Loading dares…</Text>
+      {loading ? (
+        <Card style={styles.card}>
+          <View style={styles.loadRow}>
+            <ActivityIndicator color={colors.accent} size="small" />
+            <Text style={styles.loadText}>Loading dares…</Text>
           </View>
-        ) : error ? (
-          <Text style={styles.errorText}>{error}</Text>
-        ) : items.length === 0 ? (
-          <Text style={styles.empty}>No dares in this category yet.</Text>
-        ) : (
-          items.map((item) => {
-            const tier = difficultyTierFor(item.suggested_difficulty);
-            return (
-              <Pressable
-                key={item.id}
-                onPress={() => onPick(item)}
-                style={({ pressed }) => [
-                  styles.libraryItem,
-                  pressed && styles.libraryItemPressed,
-                ]}
-              >
-                <Text style={styles.libraryTitle}>{item.title}</Text>
-                {item.description ? (
-                  <Text style={styles.libraryDescription} numberOfLines={2}>
-                    {item.description}
-                  </Text>
-                ) : null}
-                {tier ? (
-                  <View
-                    style={[
-                      styles.libraryBadge,
-                      { backgroundColor: tier.color },
-                    ]}
-                  >
-                    <Text style={styles.libraryBadgeText}>
-                      {tier.label} • {tier.points} pts
-                    </Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })
-        )}
-      </View>
+        </Card>
+      ) : error ? (
+        <Card style={styles.card}>
+          <Text style={styles.error}>{error}</Text>
+        </Card>
+      ) : items.length === 0 ? (
+        <Card style={styles.card}>
+          <Empty>No dares in this category yet.</Empty>
+        </Card>
+      ) : (
+        items.map((item) => (
+          <SuggestionRow key={item.id} item={item} onPick={onPick} />
+        ))
+      )}
     </>
   );
 }
@@ -538,246 +558,144 @@ function AITab({
   const hasDares = dares.length > 0;
   return (
     <>
-      <Text style={styles.title}>Describe your friend</Text>
-      <Text style={styles.subtitle}>
-        I'll generate 3 dares tailored to them. Tap one to drop it into the
-        Write tab.
+      <Text style={styles.h1}>Make it personal</Text>
+      <Text style={styles.sub}>
+        Describe your friend and I{'\u2019'}ll write three dares aimed squarely
+        at them.
       </Text>
 
-      <Text style={styles.sectionLabel}>Describe your friend</Text>
-      <TextInput
-        value={description}
-        onChangeText={setDescription}
-        placeholder="e.g. he hates running, she always brags about cooking"
-        placeholderTextColor={colors.textMuted}
-        style={[styles.input, styles.textarea]}
-        multiline
-        editable={!generating}
-      />
+      <Card style={styles.card}>
+        <Text style={[type.label, styles.cardLabel]}>About them</Text>
+        <Field
+          value={description}
+          onChangeText={setDescription}
+          placeholder="e.g. he hates running, she brags about her cooking"
+          multiline
+          editable={!generating}
+          inputStyle={styles.textarea}
+        />
+        <Button
+          title={hasDares ? 'Regenerate' : 'Generate dares'}
+          onPress={onGenerate}
+          loading={generating}
+        />
+      </Card>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
-
-      <Pressable
-        onPress={onGenerate}
-        disabled={generating}
-        style={({ pressed }) => [
-          styles.submitButton,
-          (generating || pressed) && styles.submitButtonPressed,
-        ]}
-      >
-        {generating ? (
-          <ActivityIndicator color={colors.background} />
-        ) : (
-          <Text style={styles.submitText}>
-            {hasDares ? 'Regenerate' : 'Generate'}
-          </Text>
-        )}
-      </Pressable>
-
-      {hasDares && !generating ? (
-        <View style={styles.libraryListWrap}>
-          {dares.map((dare, idx) => {
-            const tier = difficultyTierFor(dare.suggested_difficulty);
-            return (
-              <Pressable
-                key={`${dare.title}-${idx}`}
-                onPress={() => onPick(dare)}
-                style={({ pressed }) => [
-                  styles.libraryItem,
-                  pressed && styles.libraryItemPressed,
-                ]}
-              >
-                <Text style={styles.libraryTitle}>{dare.title}</Text>
-                {dare.description ? (
-                  <Text style={styles.libraryDescription} numberOfLines={3}>
-                    {dare.description}
-                  </Text>
-                ) : null}
-                {tier ? (
-                  <View
-                    style={[
-                      styles.libraryBadge,
-                      { backgroundColor: tier.color },
-                    ]}
-                  >
-                    <Text style={styles.libraryBadgeText}>
-                      {tier.label} • {tier.points} pts
-                    </Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
+      {error ? (
+        <Card style={styles.card}>
+          <Text style={styles.error}>{error}</Text>
+        </Card>
       ) : null}
+
+      {hasDares && !generating
+        ? dares.map((dare, i) => (
+            <SuggestionRow
+              key={`${dare.title}-${i}`}
+              item={dare}
+              onPick={onPick}
+            />
+          ))
+        : null}
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  scroll: { padding: 24, paddingBottom: 48 },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
-  errorText: {
-    color: colors.danger,
-    fontSize: 13,
-    marginTop: 16,
-    textAlign: 'center',
-  },
+  scroll: { paddingHorizontal: gutter, paddingBottom: space.xxxl },
 
-  tabBar: {
+  tabWrap: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surface,
-    backgroundColor: colors.background,
+    marginHorizontal: gutter,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderRadius: radius.pill,
+    padding: 4,
+    marginBottom: space.lg,
   },
   tab: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 4,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
   },
-  tabActive: { borderBottomColor: colors.accent },
-  tabDisabled: { opacity: 0.5 },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  tabTextActive: { color: colors.dark },
-  tabTextDisabled: { color: colors.textMuted },
+  tabActive: { backgroundColor: colors.navy },
+  tabText: { fontFamily: fonts.sansMedium, fontSize: 12.5, color: colors.muted },
+  tabTextActive: { color: '#FFFFFF', fontFamily: fonts.sansBold },
+  tabTextDisabled: { opacity: 0.4 },
 
-  title: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.dark,
-    letterSpacing: -0.5,
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginBottom: 8,
-  },
+  h1: { ...type.display, fontSize: 30, lineHeight: 36 },
+  sub: { ...type.bodyMuted, marginTop: space.xs },
 
-  sectionLabel: {
+  card: { marginTop: space.md },
+  cardLabel: { marginBottom: space.md },
+  lastField: { marginBottom: 0 },
+
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  selChip: {
+    paddingHorizontal: space.lg,
+    paddingVertical: 9,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surface,
+  },
+  selChipOn: { backgroundColor: colors.navy },
+  selChipText: {
+    fontFamily: fonts.sansMedium,
     fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 20,
-    marginBottom: 8,
+    color: colors.inkSoft,
   },
-  empty: { color: colors.textMuted, fontSize: 14 },
+  selChipTextOn: { color: '#FFFFFF', fontFamily: fonts.sansBold },
 
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-  },
-  textarea: { minHeight: 90, textAlignVertical: 'top' },
-  helper: {
-    color: colors.textMuted,
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: 'right',
-  },
+  textarea: { minHeight: 88, textAlignVertical: 'top', paddingTop: 14 },
 
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginHorizontal: -4,
-  },
-  chip: {
-    backgroundColor: colors.surface,
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    margin: 4,
-  },
-  chipSelected: { backgroundColor: colors.accent },
-  chipText: { color: colors.text, fontSize: 14 },
-  chipTextSelected: { color: colors.background, fontWeight: '600' },
-
-  tierList: { marginTop: 4 },
   tier: {
-    borderRadius: 14,
-    borderWidth: 2,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.md,
   },
+  tierDivided: { borderBottomWidth: 1, borderBottomColor: colors.line },
+  tierDot: { width: 10, height: 10, borderRadius: 5 },
   tierMain: { flex: 1 },
-  tierLabel: { fontSize: 16, fontWeight: '700', color: colors.dark },
-  tierMeta: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
-  tierTextOnFill: { color: colors.background },
-
-  submitButton: {
-    marginTop: 24,
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
+  tierLabel: { fontFamily: fonts.sansBold, fontSize: 15, color: colors.ink },
+  tierMeta: { ...type.small, marginTop: 1 },
+  radio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: colors.line,
     alignItems: 'center',
-    ...shadows.button,
+    justifyContent: 'center',
   },
-  submitButtonPressed: { opacity: 0.85 },
-  submitText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
 
-  libraryListWrap: { marginTop: 16 },
-  libraryLoadingRow: {
+  loadRow: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
+  loadText: { ...type.small },
+
+  suggestion: { marginTop: space.md },
+  suggestionTop: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: space.md,
   },
-  libraryLoadingText: {
-    marginLeft: 8,
-    color: colors.textMuted,
-    fontSize: 14,
-  },
-  libraryItem: {
-    backgroundColor: colors.background,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    ...shadows.card,
-  },
-  libraryItemPressed: { opacity: 0.85 },
-  libraryTitle: {
+  suggestionTitle: {
+    flex: 1,
+    fontFamily: fonts.sansBold,
     fontSize: 15,
-    fontWeight: '700',
-    color: colors.dark,
+    lineHeight: 21,
+    color: colors.ink,
   },
-  libraryDescription: {
-    fontSize: 13,
-    color: colors.textMuted,
-    marginTop: 4,
+  suggestionTier: { fontFamily: fonts.sansBold, fontSize: 13 },
+  suggestionBody: { ...type.small, marginTop: space.xs },
+
+  error: {
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
+    color: colors.danger,
+    marginTop: space.md,
   },
-  libraryBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    marginTop: 10,
-  },
-  libraryBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.background,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
+  submit: { marginTop: space.xl },
+
+  pressed: { opacity: 0.65 },
 });

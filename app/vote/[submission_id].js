@@ -4,7 +4,6 @@ import {
   Image,
   Linking,
   Pressable,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +11,16 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
-import { colors, shadows } from '../../constants/theme';
+import { colors, fonts, gutter, radius, space, type } from '../../constants/theme';
+import {
+  Card,
+  ErrorState,
+  Loading,
+  Pill,
+  Screen,
+  SegmentBar,
+  TopBar,
+} from '../../components/ui';
 import { castVote, getSubmissionForVoter } from '../../api/voteApi';
 
 function formatRemaining(ms) {
@@ -99,30 +107,9 @@ export default function VoteScreen() {
     }
   }
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.headerRow}>
-          <Pressable onPress={() => router.back()} hitSlop={10}>
-            <Text style={styles.headerLink}>Back</Text>
-          </Pressable>
-        </View>
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error ?? 'Vote not available.'}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  if (loading) return <Loading />;
+  if (error || !data)
+    return <ErrorState message={error ?? 'Vote not available.'} />;
 
   const { submission, dare, submitter, viewer, votes, voting_deadline } = data;
   const isVideo = submission.media_type === 'video';
@@ -140,288 +127,254 @@ export default function VoteScreen() {
   const showVoteButtons =
     !closed && !viewer.is_sender && !viewer.is_submitter && !viewer.has_voted;
 
-  return (
-    <SafeAreaView style={styles.safe}>
-      <View style={styles.headerRow}>
-        <Pressable onPress={() => router.back()} hitSlop={10}>
-          <Text style={styles.headerLink}>Back</Text>
-        </Pressable>
-      </View>
+  const total = (votes.approved ?? 0) + (votes.rejected ?? 0);
 
-      <ScrollView contentContainerStyle={styles.scroll}>
+  return (
+    <Screen>
+      <TopBar />
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.mediaWrap}>
           {isVideo ? (
-            <Pressable onPress={handleOpenVideo} style={styles.videoPressable}>
-              <View style={styles.videoOverlay}>
-                <View style={styles.playButton}>
-                  <Text style={styles.playButtonText}>Play</Text>
-                </View>
-                <Text style={styles.videoCaption}>Tap to play video</Text>
+            <Pressable
+              onPress={handleOpenVideo}
+              style={({ pressed }) => [styles.video, pressed && styles.pressed]}
+            >
+              <View style={styles.playDot}>
+                <Text style={styles.playGlyph}>▶</Text>
               </View>
+              <Text style={styles.playLabel}>Tap to play</Text>
             </Pressable>
           ) : (
             <Image
               source={{ uri: submission.media_url }}
-              style={styles.mediaImage}
+              style={styles.image}
               resizeMode="cover"
             />
           )}
-        </View>
-
-        <View style={styles.body}>
-          <Text style={styles.title}>{dare.title}</Text>
-          <Text style={styles.meta}>
-            Submitted by {submitterName}
-            {submittedAt ? ` • ${submittedAt}` : ''}
-          </Text>
-
-          <View style={styles.timerBox}>
-            <Text style={styles.timerLabel}>Time left to vote</Text>
+          <View style={styles.clockChip}>
             <Text
               style={[
-                styles.timerValue,
-                remaining.urgent && styles.timerUrgent,
+                styles.clockText,
+                remaining.urgent && styles.clockUrgent,
               ]}
             >
               {closed ? 'Closed' : remaining.text}
             </Text>
           </View>
-
-          <View style={styles.tallyRow}>
-            <View style={[styles.tallyChip, styles.tallyApproved]}>
-              <Text style={styles.tallyText}>
-                {votes.approved} approved
-              </Text>
-            </View>
-            <View style={[styles.tallyChip, styles.tallyRejected]}>
-              <Text style={styles.tallyText}>
-                {votes.rejected} rejected
-              </Text>
-            </View>
-          </View>
-
-          {voteError ? <Text style={styles.errorText}>{voteError}</Text> : null}
-
-          {viewer.is_sender ? (
-            <View style={styles.statusBox}>
-              <Text style={styles.statusText}>You sent this dare.</Text>
-            </View>
-          ) : viewer.is_submitter ? (
-            <View style={styles.statusBox}>
-              <Text style={styles.statusText}>
-                You submitted this proof. Waiting on votes.
-              </Text>
-            </View>
-          ) : closed ? (
-            <View style={styles.statusBox}>
-              <Text style={styles.statusText}>{statusLine(submission.status)}</Text>
-            </View>
-          ) : viewer.has_voted ? (
-            <View style={styles.statusBox}>
-              <Text style={styles.statusText}>
-                You voted{' '}
-                <Text style={styles.statusEmphasis}>{viewer.my_vote}</Text>.
-              </Text>
-            </View>
-          ) : showVoteButtons ? (
-            <View style={styles.actionsRow}>
-              <Pressable
-                onPress={() => handleVote('rejected')}
-                disabled={!!voting}
-                style={({ pressed }) => [
-                  styles.rejectButton,
-                  pressed && !voting && styles.buttonPressed,
-                  voting && styles.buttonDimmed,
-                ]}
-              >
-                {voting === 'rejected' ? (
-                  <ActivityIndicator color={colors.background} />
-                ) : (
-                  <Text style={styles.actionButtonText}>Reject</Text>
-                )}
-              </Pressable>
-              <Pressable
-                onPress={() => handleVote('approved')}
-                disabled={!!voting}
-                style={({ pressed }) => [
-                  styles.approveButton,
-                  pressed && !voting && styles.buttonPressed,
-                  voting && styles.buttonDimmed,
-                ]}
-              >
-                {voting === 'approved' ? (
-                  <ActivityIndicator color={colors.background} />
-                ) : (
-                  <Text style={styles.actionButtonText}>Approve</Text>
-                )}
-              </Pressable>
-            </View>
-          ) : null}
         </View>
+
+        <Card style={styles.card}>
+          <Text style={styles.title}>{dare.title}</Text>
+          <Text style={styles.meta}>
+            {submitterName}
+            {submittedAt ? ` · ${submittedAt}` : ''}
+          </Text>
+
+          <View style={styles.tallyTop}>
+            <Text style={type.label}>Votes so far</Text>
+            <Text style={styles.tallyTotal}>{total}</Text>
+          </View>
+          <SegmentBar
+            segments={[
+              { flex: votes.rejected ?? 0, color: colors.danger },
+              { flex: votes.approved ?? 0, color: colors.success },
+            ]}
+          />
+          <View style={styles.legend}>
+            <Text style={styles.legendRejected}>
+              {votes.rejected} rejected
+            </Text>
+            <Text style={styles.legendApproved}>
+              {votes.approved} approved
+            </Text>
+          </View>
+        </Card>
+
+        {voteError ? <Text style={styles.error}>{voteError}</Text> : null}
+
+        {viewer.is_sender ? (
+          <Card style={styles.card}>
+            <Pill tone="neutral">Your dare</Pill>
+            <Text style={styles.status}>
+              You sent this dare, so you can{'\u2019'}t vote on it.
+            </Text>
+          </Card>
+        ) : viewer.is_submitter ? (
+          <Card style={styles.card}>
+            <Pill tone="warn">Your proof</Pill>
+            <Text style={styles.status}>Waiting on your friends.</Text>
+          </Card>
+        ) : closed ? (
+          <Card style={styles.card}>
+            <Text style={styles.status}>{statusLine(submission.status)}</Text>
+          </Card>
+        ) : viewer.has_voted ? (
+          <Card style={styles.card}>
+            <Pill tone={viewer.my_vote === 'approved' ? 'success' : 'danger'}>
+              You voted {viewer.my_vote}
+            </Pill>
+          </Card>
+        ) : showVoteButtons ? (
+          <View style={styles.actions}>
+            <Pressable
+              onPress={() => handleVote('rejected')}
+              disabled={!!voting}
+              style={({ pressed }) => [
+                styles.voteBtn,
+                styles.rejectBtn,
+                pressed && !voting && styles.pressed,
+                !!voting && styles.dimmed,
+              ]}
+            >
+              {voting === 'rejected' ? (
+                <ActivityIndicator color={colors.danger} />
+              ) : (
+                <Text style={[styles.voteText, { color: colors.danger }]}>
+                  Reject
+                </Text>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => handleVote('approved')}
+              disabled={!!voting}
+              style={({ pressed }) => [
+                styles.voteBtn,
+                styles.approveBtn,
+                pressed && !voting && styles.pressed,
+                !!voting && styles.dimmed,
+              ]}
+            >
+              {voting === 'approved' ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={[styles.voteText, { color: '#FFFFFF' }]}>
+                  Approve
+                </Text>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { paddingBottom: 48 },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-  },
+  scroll: { paddingHorizontal: gutter, paddingBottom: space.xxxl },
 
-  headerRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  headerLink: { color: colors.accent, fontSize: 15, fontWeight: '600' },
-
-  mediaWrap: {
+  mediaWrap: {},
+  image: {
     width: '100%',
-    height: 400,
+    aspectRatio: 1,
+    borderRadius: radius.card,
     backgroundColor: colors.surface,
-    overflow: 'hidden',
   },
-  mediaImage: { width: '100%', height: '100%' },
-  videoPressable: { flex: 1, backgroundColor: colors.dark },
-  videoOverlay: {
-    flex: 1,
+  video: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: radius.card,
+    backgroundColor: colors.navy,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playButton: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: colors.background,
+  playDot: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: colors.lime,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  playButtonText: {
-    color: colors.dark,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  videoCaption: {
-    marginTop: 12,
-    color: colors.background,
-    fontSize: 14,
-  },
-
-  body: { padding: 24 },
-  title: { fontSize: 26, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
-  meta: {
-    marginTop: 4,
+  playGlyph: { fontSize: 22, color: colors.limeInk },
+  playLabel: {
+    fontFamily: fonts.sansMedium,
     fontSize: 13,
-    color: colors.textMuted,
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: space.md,
   },
-
-  timerBox: {
-    marginTop: 20,
-    backgroundColor: colors.background,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    ...shadows.card,
+  clockChip: {
+    position: 'absolute',
+    top: space.md,
+    right: space.md,
+    backgroundColor: colors.card,
+    paddingHorizontal: space.md,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
   },
-  timerLabel: {
-    fontSize: 12,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  timerValue: {
-    marginTop: 4,
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.dark,
+  clockText: {
+    fontFamily: fonts.sansBold,
+    fontSize: 13,
+    color: colors.ink,
     fontVariant: ['tabular-nums'],
   },
-  timerUrgent: { color: colors.danger },
+  clockUrgent: { color: colors.accent },
 
-  tallyRow: {
+  card: { marginTop: space.md },
+
+  title: {
+    fontFamily: fonts.sansBold,
+    fontSize: 21,
+    lineHeight: 27,
+    letterSpacing: -0.6,
+    color: colors.ink,
+  },
+  meta: { ...type.small, marginTop: space.xs },
+
+  tallyTop: {
     flexDirection: 'row',
-    marginTop: 16,
-    gap: 8,
-  },
-  tallyChip: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: space.xl,
+    marginBottom: space.sm,
   },
-  tallyApproved: { backgroundColor: colors.success },
-  tallyRejected: { backgroundColor: colors.danger },
-  tallyText: {
-    color: colors.background,
-    fontSize: 14,
-    fontWeight: '700',
+  tallyTotal: {
+    fontFamily: fonts.sansBold,
+    fontSize: 15,
+    color: colors.ink,
   },
-
-  errorText: {
-    marginTop: 16,
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: space.sm,
+  },
+  legendApproved: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12.5,
+    color: colors.success,
+  },
+  legendRejected: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12.5,
     color: colors.danger,
-    fontSize: 13,
-    textAlign: 'center',
   },
 
-  statusBox: {
-    marginTop: 20,
-    backgroundColor: colors.background,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: 'center',
-    ...shadows.card,
+  error: {
+    marginTop: space.md,
+    fontFamily: fonts.sans,
+    fontSize: 12.5,
+    color: colors.danger,
   },
-  statusText: {
-    color: colors.text,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  statusEmphasis: { fontWeight: '700', color: colors.dark },
+  status: { ...type.body, marginTop: space.sm },
 
-  actionsRow: {
-    flexDirection: 'row',
-    marginTop: 20,
-    gap: 10,
-  },
-  approveButton: {
+  actions: { flexDirection: 'row', gap: space.md, marginTop: space.xl },
+  voteBtn: {
     flex: 1,
-    backgroundColor: colors.success,
-    borderRadius: 16,
+    borderRadius: radius.pill,
     paddingVertical: 16,
     alignItems: 'center',
-    shadowColor: colors.success,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 4,
+    justifyContent: 'center',
   },
-  rejectButton: {
-    flex: 1,
-    backgroundColor: colors.danger,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    shadowColor: colors.danger,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 4,
+  rejectBtn: {
+    backgroundColor: colors.card,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
   },
-  actionButtonText: {
-    color: colors.background,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  buttonPressed: { opacity: 0.85 },
-  buttonDimmed: { opacity: 0.6 },
+  approveBtn: { backgroundColor: colors.success },
+  voteText: { fontFamily: fonts.sansBold, fontSize: 15 },
+
+  pressed: { opacity: 0.65 },
+  dimmed: { opacity: 0.4 },
 });

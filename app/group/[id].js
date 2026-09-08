@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
-  SafeAreaView,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   View,
@@ -11,8 +10,20 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
 import { supabase } from '../../lib/supabase';
-import { colors, shadows } from '../../constants/theme';
-import BackBar from '../../components/BackBar';
+import { colors, fonts, gutter, radius, space, type } from '../../constants/theme';
+import {
+  Button,
+  Card,
+  Empty,
+  ErrorState,
+  IconButton,
+  Loading,
+  Pill,
+  Screen,
+  SectionTitle,
+  Stat,
+  TopBar,
+} from '../../components/ui';
 
 export default function GroupDetail() {
   const { id } = useLocalSearchParams();
@@ -67,25 +78,9 @@ export default function GroupDetail() {
     };
   }, [id]);
 
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.accent} size="large" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (error || !overview) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.center}>
-          <Text style={styles.errorText}>{error ?? 'Group not available.'}</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  if (loading) return <Loading />;
+  if (error || !overview)
+    return <ErrorState message={error ?? 'Group not available.'} />;
 
   const members = overview.members ?? [];
   const myIndex = meId ? members.findIndex((m) => m.user_id === meId) : -1;
@@ -93,170 +88,188 @@ export default function GroupDetail() {
   const daysRemaining = dayjs()
     .endOf('month')
     .diff(dayjs().startOf('day'), 'day');
+  const code = overview.invite_code;
+  const top = members[0]?.monthly_points || 1;
+
+  async function handleShareCode() {
+    if (!code) return;
+    try {
+      await Share.share({
+        message: `Join "${overview.name}" on Provd — invite code ${code}`,
+      });
+    } catch {
+      // user dismissed the sheet
+    }
+  }
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <BackBar />
-      <ScrollView contentContainerStyle={styles.scroll}>
+    <Screen>
+      <TopBar
+        right={
+          code ? <IconButton glyph="↗" onPress={handleShareCode} /> : null
+        }
+      />
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.groupName}>{overview.name}</Text>
 
-        <View style={styles.pillRow}>
-          <View style={styles.pill}>
-            <Text style={styles.pillLabel}>Season ends in</Text>
-            <Text style={styles.pillValue}>
-              {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}
-            </Text>
+        <Card tone="navy" style={styles.headCard}>
+          <View style={styles.headStats}>
+            <Stat
+              value={myRank ? `#${myRank}` : '—'}
+              label={`of ${members.length}`}
+              tone="onDark"
+            />
+            <View style={styles.vDivider} />
+            <Stat value={daysRemaining} label="Days left" tone="onDark" />
           </View>
-          <View style={styles.pill}>
-            <Text style={styles.pillLabel}>Your rank</Text>
-            <Text style={styles.pillValue}>
-              {myRank ? `#${myRank} of ${members.length}` : '—'}
-            </Text>
-          </View>
-        </View>
+          {code ? (
+            <Pressable
+              onPress={handleShareCode}
+              style={({ pressed }) => [styles.code, pressed && styles.pressed]}
+            >
+              <Text style={styles.codeLabel}>Invite code</Text>
+              <Text style={styles.codeValue}>{code}</Text>
+            </Pressable>
+          ) : null}
+        </Card>
 
-        <Pressable
+        <Button
+          title="Send a new dare"
           onPress={() => router.push(`/create-dare?groupId=${id}`)}
-          style={({ pressed }) => [
-            styles.cta,
-            pressed && styles.ctaPressed,
-          ]}
-        >
-          <Text style={styles.ctaText}>Send a new dare</Text>
-        </Pressable>
+          style={styles.cta}
+        />
 
-        <Text style={styles.sectionTitle}>Members</Text>
+        <SectionTitle style={styles.section}>Standings</SectionTitle>
         {members.length === 0 ? (
-          <Text style={styles.empty}>No members yet.</Text>
+          <Card>
+            <Empty>No members yet.</Empty>
+          </Card>
         ) : (
-          members.map((m, idx) => {
-            const isMe = m.user_id === meId;
-            return (
-              <View
-                key={m.user_id}
-                style={[styles.memberRow, isMe && styles.memberRowMe]}
-              >
-                <Text style={styles.rank}>#{idx + 1}</Text>
-                <View style={styles.memberInfo}>
-                  <Text style={styles.memberName}>
-                    {m.display_name?.trim() || `@${m.username}`}
-                  </Text>
-                  {m.display_name?.trim() ? (
-                    <Text style={styles.memberHandle}>@{m.username}</Text>
-                  ) : null}
+          <Card>
+            {members.map((m, idx) => {
+              const isMe = m.user_id === meId;
+              const pct = Math.round(((m.monthly_points ?? 0) / top) * 100);
+              return (
+                <View
+                  key={m.user_id}
+                  style={[styles.member, idx > 0 && styles.memberDivided]}
+                >
+                  <View style={styles.memberTop}>
+                    <View
+                      style={[styles.rankDot, isMe && styles.rankDotMe]}
+                    >
+                      <Text
+                        style={[styles.rankNum, isMe && styles.rankNumMe]}
+                      >
+                        {idx + 1}
+                      </Text>
+                    </View>
+                    <View style={styles.memberInfo}>
+                      <Text style={styles.memberName}>
+                        {m.display_name?.trim() || `@${m.username}`}
+                        {isMe ? ' · you' : ''}
+                      </Text>
+                      <Text style={styles.memberMeta}>
+                        @{m.username} · {m.current_streak ?? 0} day streak
+                      </Text>
+                    </View>
+                    <Text style={styles.memberPoints}>
+                      {m.monthly_points ?? 0}
+                    </Text>
+                  </View>
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        {
+                          width: `${pct}%`,
+                          backgroundColor: isMe ? colors.accent : colors.lime,
+                        },
+                      ]}
+                    />
+                  </View>
                 </View>
-                <View style={styles.memberStats}>
-                  <Text style={styles.memberPoints}>
-                    {m.monthly_points ?? 0} pts
-                  </Text>
-                  <Text style={styles.memberStreak}>
-                    streak {m.current_streak ?? 0}
-                  </Text>
-                </View>
-              </View>
-            );
-          })
+              );
+            })}
+          </Card>
         )}
 
-        <Text style={styles.sectionTitle}>Recent activity</Text>
-        <Text style={styles.empty}>
-          Nothing yet — completed dares will show up here.
-        </Text>
+        <SectionTitle style={styles.section}>Recent activity</SectionTitle>
+        <Card>
+          <Empty>Nothing yet — completed dares will show up here.</Empty>
+        </Card>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  scroll: { padding: 24, paddingBottom: 48 },
-  center: {
-    flex: 1,
+  scroll: { paddingHorizontal: gutter, paddingBottom: space.xxxl },
+
+  groupName: { ...type.display, marginBottom: space.lg },
+
+  headCard: {},
+  headStats: { flexDirection: 'row', alignItems: 'center', gap: space.xl },
+  vDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.16)' },
+
+  code: {
+    marginTop: space.xl,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+  },
+  codeLabel: {
+    fontFamily: fonts.sans,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  codeValue: {
+    fontFamily: fonts.sansBold,
+    fontSize: 20,
+    letterSpacing: 5,
+    color: colors.lime,
+    marginTop: 2,
+  },
+
+  cta: { marginTop: space.md },
+  section: { marginTop: space.xxl },
+
+  member: { paddingVertical: space.md },
+  memberDivided: { borderTopWidth: 1, borderTopColor: colors.line },
+  memberTop: { flexDirection: 'row', alignItems: 'center', gap: space.md },
+  rankDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 24,
   },
-  errorText: { color: colors.danger, fontSize: 14, textAlign: 'center' },
-
-  groupName: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: colors.dark,
-    letterSpacing: -0.5,
-  },
-
-  pillRow: {
-    flexDirection: 'row',
-    marginTop: 16,
-    marginHorizontal: -6,
-  },
-  pill: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    marginHorizontal: 6,
-    ...shadows.card,
-  },
-  pillLabel: {
-    fontSize: 11,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  pillValue: {
-    marginTop: 4,
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.dark,
-  },
-
-  cta: {
-    marginTop: 20,
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    ...shadows.button,
-  },
-  ctaPressed: { opacity: 0.85 },
-  ctaText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
-
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.dark,
-    marginTop: 24,
-    marginBottom: 8,
-  },
-  empty: {
-    color: colors.textMuted,
-    fontSize: 14,
-    paddingVertical: 8,
-  },
-
-  memberRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginVertical: 2,
-  },
-  memberRowMe: {
-    backgroundColor: colors.surface,
-  },
-  rank: {
-    width: 32,
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textMuted,
-  },
+  rankDotMe: { backgroundColor: colors.accent },
+  rankNum: { fontFamily: fonts.sansBold, fontSize: 12, color: colors.muted },
+  rankNumMe: { color: '#FFFFFF' },
   memberInfo: { flex: 1 },
-  memberName: { fontSize: 15, fontWeight: '600', color: colors.dark },
-  memberHandle: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  memberStats: { alignItems: 'flex-end' },
-  memberPoints: { fontSize: 14, fontWeight: '700', color: colors.dark },
-  memberStreak: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
+  memberName: { fontFamily: fonts.sansBold, fontSize: 15, color: colors.ink },
+  memberMeta: { ...type.small, marginTop: 1 },
+  memberPoints: {
+    fontFamily: fonts.sansBold,
+    fontSize: 16,
+    color: colors.ink,
+    fontVariant: ['tabular-nums'],
+  },
+  barTrack: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.surface,
+    marginTop: space.sm,
+    marginLeft: 38,
+    overflow: 'hidden',
+  },
+  barFill: { height: 5, borderRadius: 3 },
+
+  pressed: { opacity: 0.65 },
 });

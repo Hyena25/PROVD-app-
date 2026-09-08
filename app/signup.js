@@ -1,18 +1,17 @@
 import { useState } from 'react';
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { Link, router } from 'expo-router';
 import { supabase } from '../lib/supabase';
-import { colors, shadows } from '../constants/theme';
+import { colors, fonts, gutter, space, type } from '../constants/theme';
+import { Button, Card, Field, Screen, TopBar } from '../components/ui';
 
 export default function SignUp() {
   const [username, setUsername] = useState('');
@@ -76,111 +75,95 @@ export default function SignUp() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <Screen>
+      <TopBar />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.flex}
       >
-        <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.title}>Create your account</Text>
           <Text style={styles.subtitle}>
-            Pick a username your friends will recognize.
+            Pick a username your friends will recognise.
           </Text>
 
-          <Text style={styles.label}>Username</Text>
-          <TextInput
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="none"
-            autoCorrect={false}
-            placeholder="provdfan42"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            editable={!submitting}
-          />
+          <Card style={styles.card}>
+            <Field
+              label="Username"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="username"
+              autoComplete="username"
+              placeholder="provdfan42"
+              editable={!submitting}
+            />
+            <Field
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
+              placeholder="you@example.com"
+              editable={!submitting}
+            />
+            <Field
+              label="Password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              autoCapitalize="none"
+              textContentType="newPassword"
+              autoComplete="new-password"
+              placeholder="At least 6 characters"
+              editable={!submitting}
+              error={error}
+            />
+            <Button
+              title="Create account"
+              onPress={handleSubmit}
+              loading={submitting}
+            />
+          </Card>
 
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            placeholder="you@example.com"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            editable={!submitting}
-          />
-
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            autoCapitalize="none"
-            placeholder="At least 6 characters"
-            placeholderTextColor={colors.textMuted}
-            style={styles.input}
-            editable={!submitting}
-          />
-
-          {error && <Text style={styles.error}>{error}</Text>}
-
-          <Pressable
-            onPress={handleSubmit}
-            disabled={submitting}
-            style={({ pressed }) => [
-              styles.button,
-              (submitting || pressed) && styles.buttonPressed,
-            ]}
-          >
-            {submitting ? (
-              <ActivityIndicator color={colors.background} />
-            ) : (
-              <Text style={styles.buttonText}>Sign up</Text>
-            )}
-          </Pressable>
-        </View>
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account? </Text>
+            <Link href="/login" asChild>
+              <Pressable hitSlop={8}>
+                <Text style={styles.footerLink}>Log in</Text>
+              </Pressable>
+            </Link>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  container: { flex: 1, padding: 24, justifyContent: 'center' },
-  title: { fontSize: 32, fontWeight: '800', color: colors.dark, letterSpacing: -0.5 },
-  subtitle: {
-    fontSize: 14,
-    color: colors.textMuted,
-    marginTop: 4,
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.text,
-    marginTop: 16,
-  },
-  input: {
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: colors.text,
-    marginTop: 6,
-  },
-  error: { color: colors.danger, fontSize: 13, marginTop: 16 },
-  button: {
-    marginTop: 24,
-    backgroundColor: colors.accent,
-    borderRadius: 16,
-    paddingVertical: 16,
+  scroll: { flexGrow: 1, paddingHorizontal: gutter, paddingBottom: space.xxl },
+  title: { ...type.display, fontSize: 32, lineHeight: 38 },
+  subtitle: { ...type.bodyMuted, marginTop: space.sm, marginBottom: space.xl },
+  card: {},
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.button,
+    marginTop: space.xxl,
   },
-  buttonPressed: { opacity: 0.85 },
-  buttonText: { color: colors.background, fontSize: 16, fontWeight: '700', letterSpacing: 0.2 },
+  footerText: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.muted },
+  footerLink: {
+    fontFamily: fonts.sansBold,
+    fontSize: 13.5,
+    color: colors.accent,
+  },
 });
