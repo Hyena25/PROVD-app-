@@ -3,6 +3,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import dayjs from 'dayjs';
 import { supabase } from '../../lib/supabase';
+import {
+  historyStats,
+  listMyDareHistory,
+  outcomeFor,
+} from '../../api/historyApi';
 import { colors, fonts, gutter, radius, space, type } from '../../constants/theme';
 import {
   Button,
@@ -22,8 +27,8 @@ export default function Profile() {
   const [error, setError] = useState(null);
   const [profile, setProfile] = useState(null);
   const [crowns, setCrowns] = useState([]);
-  const [completedDares, setCompletedDares] = useState([]);
-  const [totalAssigned, setTotalAssigned] = useState(0);
+  const [history, setHistory] = useState([]);
+  const [historyFilter, setHistoryFilter] = useState('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -59,26 +64,13 @@ export default function Profile() {
         if (cancelled) return;
         setCrowns(crownRows ?? []);
 
-        // Dares table may not exist yet — handle gracefully.
-        const [completedRes, assignedRes] = await Promise.all([
-          supabase
-            .from('dares')
-            .select('id, title, completed_at')
-            .eq('recipient_id', user.id)
-            .eq('status', 'completed')
-            .order('completed_at', { ascending: false }),
-          supabase
-            .from('dares')
-            .select('id', { count: 'exact', head: true })
-            .eq('recipient_id', user.id),
-        ]);
-        if (cancelled) return;
-        if (!completedRes.error && !assignedRes.error) {
-          setCompletedDares(completedRes.data ?? []);
-          setTotalAssigned(assignedRes.count ?? 0);
-        } else {
-          setCompletedDares([]);
-          setTotalAssigned(0);
+        // History is best-effort — a missing dares table shouldn't blank the
+        // whole profile.
+        try {
+          const rows = await listMyDareHistory();
+          if (!cancelled) setHistory(rows);
+        } catch {
+          if (!cancelled) setHistory([]);
         }
       } catch (err) {
         if (!cancelled) setError(err?.message ?? 'Could not load your profile.');
@@ -96,9 +88,17 @@ export default function Profile() {
   if (loading) return <Loading />;
   if (error) return <ErrorState message={error} />;
 
-  const totalCompleted = completedDares.length;
-  const completionRate =
-    totalAssigned > 0 ? Math.round((totalCompleted / totalAssigned) * 100) : 0;
+  const stats = historyStats(history);
+  const totalCompleted = stats.completed;
+  const completionRate = stats.rate ?? 0;
+  const shown =
+    historyFilter === 'all'
+      ? history
+      : history.filter((d) =>
+          historyFilter === 'completed'
+            ? d.status === 'completed'
+            : d.status !== 'completed'
+        );
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -149,7 +149,7 @@ export default function Profile() {
             <View style={[styles.meterFill, { width: `${completionRate}%` }]} />
           </View>
           <Text style={styles.meterHint}>
-            {totalCompleted} of {totalAssigned} dares completed
+            {stats.completed} completed · {stats.failed} failed
           </Text>
         </Card>
 
@@ -196,26 +196,76 @@ export default function Profile() {
           </View>
         )}
 
-        <SectionTitle style={styles.section}>Past dares</SectionTitle>
-        {completedDares.length === 0 ? (
+        <SectionTitle style={styles.section}>Your history</SectionTitle>
+        <View style={styles.filterRow}>
+          {[
+            { key: 'all', label: `All ${stats.total}` },
+            { key: 'completed', label: `Completed ${stats.completed}` },
+            { key: 'failed', label: `Failed ${stats.failed}` },
+          ].map((f) => (
+            <Pressable
+              key={f.key}
+              onPress={() => setHistoryFilter(f.key)}
+              style={({ pressed }) => [
+                styles.filter,
+                historyFilter === f.key && styles.filterOn,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  historyFilter === f.key && styles.filterTextOn,
+                ]}
+              >
+                {f.label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {shown.length === 0 ? (
           <Card>
-            <Empty>No completed dares yet.</Empty>
+            <Empty>
+              {history.length === 0
+                ? 'No finished dares yet. Your record shows up here.'
+                : 'Nothing in this filter.'}
+            </Empty>
           </Card>
         ) : (
           <Card>
-            {completedDares.map((d, i) => (
-              <View
-                key={d.id}
-                style={[styles.pastRow, i > 0 && styles.pastDivided]}
-              >
-                <Text style={styles.pastTitle} numberOfLines={1}>
-                  {d.title}
-                </Text>
-                <Text style={styles.pastDate}>
-                  {d.completed_at ? dayjs(d.completed_at).format('MMM D') : '—'}
-                </Text>
-              </View>
-            ))}
+            {shown.map((d, i) => {
+              const outcome = outcomeFor(d.status);
+              const won = outcome.key === 'completed';
+              return (
+                <View
+                  key={d.id}
+                  style={[styles.histRow, i > 0 && styles.pastDivided]}
+                >
+                  <View
+                    style={[styles.histDot, won ? styles.dotWon : styles.dotLost]}
+                  >
+                    <Text style={styles.histDotText}>{won ? '✓' : '✕'}</Text>
+                  </View>
+                  <View style={styles.histMain}>
+                    <Text style={styles.pastTitle} numberOfLines={1}>
+                      {d.title}
+                    </Text>
+                    <Text style={styles.pastDate}>
+                      {outcome.label}
+                      {d.settled_at
+                        ? ` · ${dayjs(d.settled_at).format('MMM D')}`
+                        : ''}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[styles.histPts, won ? styles.ptsWon : styles.ptsLost]}
+                  >
+                    {won ? `+${d.points_value}` : '—'}
+                  </Text>
+                </View>
+              );
+            })}
           </Card>
         )}
 
@@ -311,6 +361,44 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     marginTop: 2,
   },
+
+  filterRow: { flexDirection: 'row', gap: space.sm, marginBottom: space.md },
+  filter: {
+    paddingHorizontal: space.md,
+    paddingVertical: 7,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+  filterOn: { backgroundColor: colors.navy },
+  filterText: {
+    fontFamily: fonts.sansMedium,
+    fontSize: 12,
+    color: colors.inkSoft,
+  },
+  filterTextOn: { color: '#FFFFFF', fontFamily: fonts.sansBold },
+
+  histRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.md,
+  },
+  histDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotWon: { backgroundColor: colors.successSoft },
+  dotLost: { backgroundColor: colors.dangerSoft },
+  histDotText: { fontFamily: fonts.sansBold, fontSize: 12, color: colors.ink },
+  histMain: { flex: 1 },
+  histPts: { fontFamily: fonts.sansBold, fontSize: 14 },
+  ptsWon: { color: colors.success },
+  ptsLost: { color: colors.muted },
+
+  pressed: { opacity: 0.65 },
 
   pastRow: {
     flexDirection: 'row',

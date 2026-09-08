@@ -10,6 +10,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import dayjs from 'dayjs';
 import { supabase } from '../../lib/supabase';
+import { listGroupDareHistory, outcomeFor } from '../../api/historyApi';
 import { colors, fonts, gutter, radius, space, type } from '../../constants/theme';
 import {
   Button,
@@ -30,6 +31,7 @@ export default function GroupDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [overview, setOverview] = useState(null);
+  const [history, setHistory] = useState([]);
   const [meId, setMeId] = useState(null);
 
   useEffect(() => {
@@ -65,6 +67,14 @@ export default function GroupDetail() {
         }
         if (cancelled) return;
         setOverview(data);
+
+        // Shared activity feed — best-effort, never blocks the group view.
+        try {
+          const rows = await listGroupDareHistory(id);
+          if (!cancelled) setHistory(rows);
+        } catch {
+          if (!cancelled) setHistory([]);
+        }
       } catch (err) {
         if (!cancelled) setError(err?.message ?? 'Could not load this group.');
       } finally {
@@ -198,9 +208,49 @@ export default function GroupDetail() {
         )}
 
         <SectionTitle style={styles.section}>Recent activity</SectionTitle>
-        <Card>
-          <Empty>Nothing yet — completed dares will show up here.</Empty>
-        </Card>
+        {history.length === 0 ? (
+          <Card>
+            <Empty>Nothing yet — finished dares will show up here.</Empty>
+          </Card>
+        ) : (
+          <Card>
+            {history.map((d, i) => {
+              const outcome = outcomeFor(d.status);
+              const won = outcome.key === 'completed';
+              const who =
+                d.target?.display_name?.trim() ||
+                (d.target?.username ? `@${d.target.username}` : 'Someone');
+              return (
+                <View
+                  key={d.id}
+                  style={[styles.actRow, i > 0 && styles.memberDivided]}
+                >
+                  <View
+                    style={[styles.actDot, won ? styles.dotWon : styles.dotLost]}
+                  >
+                    <Text style={styles.actDotText}>{won ? '✓' : '✕'}</Text>
+                  </View>
+                  <View style={styles.actMain}>
+                    <Text style={styles.actTitle} numberOfLines={1}>
+                      {d.title}
+                    </Text>
+                    <Text style={styles.actMeta}>
+                      {who} · {outcome.label}
+                      {d.settled_at
+                        ? ` · ${dayjs(d.settled_at).format('MMM D')}`
+                        : ''}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[styles.actPts, won ? styles.ptsWon : styles.ptsLost]}
+                  >
+                    {won ? `+${d.points_value}` : '—'}
+                  </Text>
+                </View>
+              );
+            })}
+          </Card>
+        )}
       </ScrollView>
     </Screen>
   );
@@ -270,6 +320,29 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   barFill: { height: 5, borderRadius: 3 },
+
+  actRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    paddingVertical: space.md,
+  },
+  actDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotWon: { backgroundColor: colors.successSoft },
+  dotLost: { backgroundColor: colors.dangerSoft },
+  actDotText: { fontFamily: fonts.sansBold, fontSize: 12, color: colors.ink },
+  actMain: { flex: 1 },
+  actTitle: { fontFamily: fonts.sansBold, fontSize: 15, color: colors.ink },
+  actMeta: { ...type.small, marginTop: 1 },
+  actPts: { fontFamily: fonts.sansBold, fontSize: 14 },
+  ptsWon: { color: colors.success },
+  ptsLost: { color: colors.muted },
 
   pressed: { opacity: 0.65 },
 });
